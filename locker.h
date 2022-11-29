@@ -29,7 +29,7 @@ public:
     }
 
     bool post(){ //V操作
-        return sem_post(&m_sem) != 0
+        return sem_post(&m_sem) != 0;
     }
 
 private:
@@ -114,7 +114,11 @@ private:
     //条件变量要与互斥锁一起使用，因为条件变量是共享资源，所以signal和wait操作都需要上锁执行。
     //而至于wait函数内部为什么要解锁再上锁，原因是通过互斥锁实现 线程同步
     //可以看https://blog.csdn.net/itworld123/article/details/115654491 的图
-    //从图中就可以看出，wait函数内部解锁再上锁，就是为了线程同步
+    //从图中就可以看出，wait函数内部解锁再上锁，就是为了线程同步，
+    //确保 一个进程的wait函数在解锁后先进入等待状态，然后另一个进程才可以去signal（前提是wait函数在signal函数之前执行）
+   
+    //在实践中，我们必须确保一个进程先调用wait，然后另一个进程调用signal才可以
+    //否则signal调用时，wait还没开始，然后啥也没唤醒，然后开始wait，就不会再被唤醒了，一直阻塞着。
 };
 
 #endif
