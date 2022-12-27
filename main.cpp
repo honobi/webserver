@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#include "log/block_queue.h"
 using namespace std;
 
 class Request{
@@ -16,13 +17,7 @@ public:
 
 int main(){
     
-    threadpool<Request> pool(1);
 
-    while(1){
-        //sleep(1);
-        Request* req = new Request(100);
-        pool.append(req, 1);
-    }
     
     
     

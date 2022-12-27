@@ -88,8 +88,8 @@ public:
         
     }
 
-    bool timewait(pthread_mutex_t* m_mutex, struct timespec t){ //具有等待时间的wait
-        int ret = pthread_cond_timedwait(&m_cond, m_mutex, &t);
+    bool timedwait(pthread_mutex_t* m_mutex, struct timespec t){ //具有等待时间的wait
+        int ret = pthread_cond_timedwait(&m_cond, m_mutex, &t); //这个时间是从1970年到现在的时间间隔
     }
 
     bool signal(){ //唤醒等待条件变量的线程
@@ -114,10 +114,19 @@ private:
     //条件变量要与互斥锁一起使用，因为条件变量是共享资源，所以signal和wait操作都需要上锁执行。
     //而至于wait函数内部为什么要解锁再上锁，原因是通过互斥锁实现 线程同步
     //可以看https://blog.csdn.net/itworld123/article/details/115654491 的图
-    //从图中就可以看出，wait函数内部解锁再上锁，就是为了线程同步，
-    //确保 一个进程的wait函数在解锁后先进入等待状态，然后另一个进程才可以去signal（前提是wait函数在signal函数之前执行）
-   
-    //在实践中，我们必须确保一个进程先调用wait，然后另一个进程调用signal才可以
+    /*这个图画的很好，展示了使用信号量应该遵循的步骤
+        第一步是wait线程上锁mutex。可以看到signal线程第一步要做的也是上锁mutex。
+        所以我们只要保证wait线程先上锁，然后signal线程再上锁，就可以保证，pthread_cond_signal函数一定是在pthread_cond_wait函数后面运行
+        我们需要自己手动上锁再解锁的就两个地方：wait线程：1.上锁 2.调用pthread_cond_wait 3.解锁
+        signal线程：1.上锁 2.调用pthread_cond_signal 3.解锁
+        而pthread_cond_wait函数中还会自动执行一次 ：1.解锁 2.阻塞等待被唤醒 3.唤醒后上锁
+        所以总的执行流程是这样的：
+        1.wait线程上锁  2.wait线程调用pthread_cond_wait函数，这个函数会自动解锁
+        3.signal线程上锁    4.signal线程调用pthread_cond_signal唤醒wait线程
+        5.signal线程解锁  6.wait线程的pthread_cond_wait函数自动上锁    7.wait线程解锁
+    */
+
+    //在实践中，我们必须确保wait线程先上锁，然后signal线程在上锁，必须保证这一点，才能做到线程同步
     //否则signal调用时，wait还没开始，然后啥也没唤醒，然后开始wait，就不会再被唤醒了，一直阻塞着。
 };
 
