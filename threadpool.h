@@ -43,7 +43,8 @@ private:
     void run();
     //worker函数并不是画蛇添足，是因为pthread_create的第三个参数需要一个静态的成员函数。
     //因为非静态成员函数第一个参数是一个隐式的this指针，与create函数第三个参数要求的void*不匹配，就无法调用create函数。所以不能直接用非static成员函数创建线程
-    
+    //但是我认为run函数和worker函数是可以合并为一个静态函数的，把run函数的内容放进worker里就可以
+
     int m_thread_number;  //线程池中的线程数
     int m_max_requests;   //请求队列允许的最大请求数
     pthread_t* m_threads; //线程池数组。 感觉之后这里可以换成一个vector<pthread_t>，让STL自己管理内存
