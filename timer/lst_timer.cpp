@@ -85,21 +85,20 @@ int Utils::setnonblocking(int fd){
     return old_option;
 }
 
-//向某个epoll的内核事件表注册一个读事件，让内核去检测管道的写端
+//向epoll的内核事件表注册一个读事件，让内核去检测管道的写端
 void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
 //one_shot代表是否开启EPOLLONESHOT，TRIGMode代表是否采用ET模式（LT模式是缺省模式）
 
     epoll_event event;
     event.data.fd = fd;
 
+    event.events = EPOLLIN | EPOLLRDHUP; //检测读事件 和对端断开连接
+    
     if(TRIGMode == 1) //1代表采用ET模式
-        event.events = EPOLLIN | EPOLLET | EPOLLRDHUP; //检测该fd上的读事件、采用ET模式
-    else
-        event.events = EPOLLIN | EPOLLRDHUP; //检测读事件、采用LT模式
-    //EPOLLRDHUP事件代表对端断开连接，是2.6.17 版本内核之后加的。有了这个事件，对端断开连接的异常就可以在底层进行处理了，
+        event.events |= EPOLLET;
 
-    if(one_shot == true) 
-        event.events |= EPOLLONESHOT;
+    if(one_shot) //EPOLLONESHOT
+        event.events |= EPOLLONESHOT; 
 
     epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event); //把要被检测的事件注册到epoll的内核事件表
 
