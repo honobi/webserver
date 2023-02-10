@@ -55,7 +55,7 @@ public:
     int timer_flag;
     int improv;
     MYSQL *mysql;
-    int m_state;  //读为0, 写为1
+    int m_state;  //标记HTTP连接目前是应该 读请求报文 还是 写响应报文。读为0, 写为1
 
    
 public:
@@ -66,7 +66,7 @@ public:
     void init(int sockfd, const sockaddr_in &addr, char *root, int TRIGMode,
             int close_log, std::string user, std::string passwd, std::string sqlname);
     void close_conn(bool real_close = true); //关闭连接
-    void process();  
+    void process();   //读请求报文，写响应报文
     bool read_once(); //读取浏览器端发来的全部数据
     bool write();   //响应报文写入函数
 

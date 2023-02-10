@@ -141,7 +141,7 @@ void http_conn::init(){
     m_read_idx = 0;
     m_write_idx = 0;
     cgi = 0;
-    m_state = 0;
+    m_state = 0;  
     timer_flag = 0;
     improv = 0;
 
@@ -192,7 +192,7 @@ http_conn::LINE_STATUS http_conn::parse_line(){
 
 }
 
-//循环读取客户数据，直到无数据可读或对方关闭连接
+//循环的 将接收到的数据放进 读缓冲区 中，直到无数据可读或对方关闭连接
 //非阻塞ET工作模式下，需要一次性将数据读完
 bool http_conn::read_once()
 {
@@ -369,6 +369,7 @@ http_conn::HTTP_CODE http_conn::parse_content(char* text)
     return NO_REQUEST;
 }
 
+//解析整个请求报文
 http_conn::HTTP_CODE http_conn::process_read()
 {
     //初始化从状态机状态、HTTP请求解析结果
@@ -427,6 +428,7 @@ http_conn::HTTP_CODE http_conn::process_read()
     return NO_REQUEST;
 }
 
+//将 被请求的资源 放进共享内存
 http_conn::HTTP_CODE http_conn::do_request()
 {
     //将初始化的m_real_file赋值为网站根目录doc_root
@@ -590,7 +592,7 @@ void http_conn::unmap()
     }
 }
 
-//将响应报文发送给浏览器端
+//将写缓冲区中的响应报文发送给浏览器端
 bool http_conn::write()
 //write函数与作者写的文章06 http连接处理（下）不同，他说书中原代码的write函数不严谨，在文章中对Bug进行了修复，可以正常传输大文件，之后可以看一下
 {
@@ -756,7 +758,7 @@ bool http_conn::add_content(const char *content)
     return add_response("%s", content);
 }
 
-
+//将完整的响应报文写入写缓冲区
 bool http_conn::process_write(HTTP_CODE ret)
 {
     switch (ret)
@@ -853,8 +855,8 @@ bool http_conn::process_write(HTTP_CODE ret)
     return true;
 }
 
-//浏览器端发出http连接请求，服务器端主线程创建http对象接收请求并将所有数据读入对应buffer，将该对象插入任务队列后，工作线程从任务队列中取出一个任务进行处理。
-//各工作线程通过process函数对任务进行处理
+//浏览器端发出http连接请求，服务器端主线程创建http对象接收请求并将所有数据读入对应buffer，将该对象插入任务队列后，工作线程从任务队列中取出一个任务进行处理，各工作线程通过process函数对任务进行处理
+//解析读缓冲区中的请求报文，然后将响应报文写入写缓冲区
 void http_conn::process()
 {
     //调用process_read读取并解析报文

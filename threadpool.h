@@ -16,14 +16,17 @@ C++采用了分离式编译的方法，.h头文件仅仅是在预处理阶段进
 */
 
 
-
 #ifndef THREADPOOL_H
 #define THREADPOOL_H
 
 
-#include "locker.h"
 #include <pthread.h> //linux多线程编程的接口
 #include <list>
+#include <exception>
+
+
+#include "locker.h"
+#include "CGImysql/sql_connection_pool.h"
 
 
 
@@ -51,7 +54,7 @@ private:
     std::list<T*> m_workqueue;  //请求队列。  不理解为什么请求队列偏要叫workqueue 
     locker m_queuelocker;   //保护请求队列的互斥锁
     sem m_queuestat;      //请求队列中请求数的信号量
-    //connection_pool* m_connPool; //数据库，还没实现，先写在注释里
+    connection_pool* m_connPool; //数据库，还没实现，先写在注释里
     int m_actor_model;    //事件处理模式
 
 };
@@ -138,6 +141,7 @@ void* threadpool<T>::worker(void* arg){
     //void*类型的返回值与void一样，都是可以不写return的
 }
 
+//工作线程从请求队列中取出某个任务进行处理
 template<typename T>
 void threadpool<T>::run(){    //run函数暂时没法写，因为涉及到具体业务逻辑，下面仅为测试用
 
@@ -145,15 +149,14 @@ void threadpool<T>::run(){    //run函数暂时没法写，因为涉及到具体
         
         m_queuestat.wait();  //P操作，对代表 请求队列中请求数的信号量 进行P操作。
 
-        m_queuelocker.lock(); //请求队列上锁
+        m_queuelocker.lock(); //请求队列是共享资源，需要上锁
 
+        //如果请求队列为空
         if(m_workqueue.empty()){
             m_queuelocker.unlock();
             continue;
         }
-
-        /*
-            信号量仅起到标志请求队列中是否有请求，当队列为空时，信号量为0，会阻塞，减少cpu消耗。
+        /*信号量仅起到标志请求队列中是否有请求，当队列为空时，信号量为0，会阻塞，减少cpu消耗。
             由于wait与lock是两步操作，并非原子操作，wait成功后，还需要获取请求队列的锁，所以还需要等待。
             当获取锁之后，由于请求队列中 请求可能已经被消耗完，所以需要判断队列是否为空
         */
@@ -164,9 +167,61 @@ void threadpool<T>::run(){    //run函数暂时没法写，因为涉及到具体
             我们只能用信号量做一些粗略的判断，比如判断队列中是否有请求，没有就阻塞住
         */ 
 
-       std::cout << "从请求队列取出请求" << std::endl;
+        //从请求队列中取出第一个任务，然后从请求队列移除
+        T *request = m_workqueue.front();
+        m_workqueue.pop_front();
 
-       m_queuelocker.unlock();
+        //解锁请求队列
+        m_queuelocker.unlock();
+
+        //如果front取任务失败
+        if (!request)
+            continue;
+
+        /*Reactor模式：主线程(I/O处理单元)只负责监听文件描述上是否有事件发生，然后通知工作线程(逻辑单元)。
+        工作线程需要 处理业务逻辑 和I/O（数据的接收和发送）*/
+        if (m_actor_model == 1)
+        {
+            //读阶段：将请求报文读到缓冲区，并解析，然后将响应报文写入写缓冲区
+            if (request->m_state == 0)
+            {
+                if (request->read_once())
+                {
+                    request->improv = 1;
+                    //从连接池中取出一个数据库连接
+                    connectionRAII mysqlcon(&request->mysql, m_connPool);
+                    request->process();
+                }
+                //无数据可读或对方关闭连接
+                else
+                {
+                    //HTPP中的improv和imer_flag的含义目前还不知道，写完在webserver.cpp就知道了
+                    request->improv = 1;
+                    request->timer_flag = 1;
+                }
+            }
+            //写阶段：将写缓冲区中的响应报文发送给浏览器端
+            else
+            {
+                if (request->write())
+                {
+                    request->improv = 1;
+                }
+                else
+                {
+                    request->improv = 1;
+                    request->timer_flag = 1;
+                }
+            }
+        }
+
+        //Proactor模式：所有I/O操作都交给主线程和内核来处理，也就是数据的接收和发送交给主线程
+        //工作线程仅仅负责业务逻辑，也就是 解析 读缓冲区的请求报文，然后把响应报文写到 写缓冲区中
+        else
+        {
+            connectionRAII mysqlcon(&request->mysql, m_connPool);
+            request->process();
+        }
 
     }
 }
