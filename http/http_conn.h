@@ -47,13 +47,13 @@ public:
         //FILE_REQUEST：请求文件存在，且可以访问
         //CLOSED_CONNECTION：
 
-    static const int FILENAME_LEN = 200; //文件名最大长度
-    static const int READ_BUFFER_SIZE = 2048; //读缓冲区大小
-    static const int WRITE_BUFFER_SIZE = 1024; //写缓冲区大小
-    static int m_epollfd;   //静态变量，所有http连接共用一个epoll去检测socket是否可读
-    static int m_user_count; //静态变量，所有的http连接数
-    int timer_flag;
-    int improv;
+    static const int FILENAME_LEN = 200;        //文件名最大长度
+    static const int READ_BUFFER_SIZE = 2048;   //读缓冲区大小
+    static const int WRITE_BUFFER_SIZE = 1024;  //写缓冲区大小
+    static int m_epollfd;       //静态变量，所有http连接共用一个epoll去检测socket是否可读
+    static int m_user_count;    //静态变量，所有的http连接数
+    int timer_flag;     //是否应该关闭该连接。当对该连接的IO操作出错时，该请求就无法处理，就可以把它当做超时连接去关闭掉
+    int improv;         //标记该连接是否已经在工作线程中执行过IO操作，仅在Reactor模式下使用
     MYSQL *mysql;
     int m_state;  //标记HTTP连接目前是应该 读请求报文 还是 写响应报文。读为0, 写为1
 
@@ -133,8 +133,8 @@ private:
     int bytes_have_send;         //已发送字节数
     char* doc_root;         //网站根目录位置
 
-    std::map<std::string, std::string> m_users;
-    int m_TRIGMode;
+    std::map<std::string, std::string> m_users;  //存放用户名和密码的map容器
+    int m_TRIGMode;        //http连接上读写事件的触发模式，0代表LT，1代表ET
     int m_close_log;
 
     char sql_user[100]; 

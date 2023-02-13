@@ -65,6 +65,7 @@ void sort_timer_lst::tick(){
         it = timer_list.erase(it); //erase函数返回删除元素的下一个迭代器。erase之后，容器上的迭代器会失效，所以必须让it重新赋值
         //每删除一个迭代器，it会自动移到下一个位置，因此不用我们手动++
         cur->cb_func(cur->user_data); //调用回调处理该超时定时器
+
         delete cur; //析构该定时器并回收内存
         
     }
@@ -85,7 +86,7 @@ int Utils::setnonblocking(int fd){
     return old_option;
 }
 
-//向epoll的内核事件表注册一个读事件，让内核去检测管道的写端
+//向epoll的内核事件表注册一个读事件。该函数在本类中只是用于检测管道的读端。
 void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
 //one_shot代表是否开启EPOLLONESHOT，TRIGMode代表是否采用ET模式（LT模式是缺省模式）
 
@@ -102,20 +103,17 @@ void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
 
     epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event); //把要被检测的事件注册到epoll的内核事件表
 
+    //设置管道读端为非阻塞。ET模式必须搭配非阻塞，而LT模式无所谓
     setnonblocking(fd); 
-    /*为什么要讲管道的写端设置为非阻塞：send是将信息发送给套接字缓冲区，如果缓冲区满了，
-        则会阻塞，这时候会进一步增加信号处理函数的执行时间，为此，将其修改为非阻塞。
-    没有对非阻塞返回值处理，如果阻塞是不是意味着这一次定时事件失效了？
-        是的，但定时事件是非必须立即处理的事件，可以允许这样的情况发生。
-    */
+    
 }
 
-/*信号是一种异步事件:信号处理函数和程序的主循环是两条不同 的执行路线。很显然，信号处理函数需要尽可能快地执行完毕，
-以确 保该信号不被屏蔽(前面提到过，为了避免一些竞态条件，信号在处 理期间，系统不会再次触发它)太久。
-一种典型的解决方案是:把信号的主要处理逻辑放到程序的主循环中，当信号处理函数被触发时， 它只是简单地通知主循环程序接收到信号，
+/*信号是一种异步事件:信号处理函数和程序的主循环是两条不同的执行路线。很显然，信号处理函数需要尽可能快地执行完毕，
+以确保该信号不被屏蔽太久(前面提到过，为了避免一些竞态条件，信号在处理期间，系统不会再次触发它)。
+一种典型的解决方案是：把信号的主要处理逻辑放到程序的主循环中，当信号处理函数被触发时， 它只是简单地通知主循环程序接收到信号，
 并把信号值传递给主循环，主循环再根据接收到的信号值执行目标信号对应的逻辑代码。
-信号处理函数通常使用管道来将信号“传递”给主循环:信号处理函数往 管道的写端写入信号值，主循环则从管道的读端读出该信号值。
-那么主循环怎么知道管道上何时有数据可读呢?这很简单，我们只需要使用 I/O复用系统调用来监听管道的读端文件描述符上的可读事件。
+信号处理函数通常使用管道来将信号"传递"给主循环：信号处理函数往管道的写端写入信号值，主循环则从管道的读端读出该信号值。
+那么主循环怎么知道管道上何时有数据可读呢?这很简单，我们只需要使用I/O复用系统调用来监听管道的读端文件描述符上的可读事件。
 如此一来，信号事件就能和其他I/O事件一样被处理，即统一事件源。
 */
 
@@ -127,16 +125,16 @@ void Utils::sig_handler(int sig){
     int save_errno = errno;
 
     int msg = sig;
-    send(u_pipefd[1], (char*)msg, 1, 0); //将信号值写入管道，以通知主循环
+    send(u_pipefd[1], (char*)msg, 1, 0); //将信号值写入管道写端，以通知主循环
     //这里是用socket的send函数向管道的写端写入数据。
-    //两点不理解：读写管道为什么不用read和write
+    //两点不理解：读写管道为什么不用read和write。 解答：本程序中用的管道是socketpair创建的两个无名socket，所以用send更贴切
     //          就算用send，那么一个int的长度也是4字节，这里怎么写1
     //他这几个函数都抄的游双书，不知道为什么是1
 
     errno = save_errno; //复原errno
 }
 
-//设置信号处理函数
+//设置信号处理函数，restart代表是否自动重启被该信号中断的系统调用
 void Utils::addsig(int sig, void(handler)(int), bool restart){
 
     struct sigaction sa; //创建sigaction结构体变量
@@ -156,7 +154,8 @@ void Utils::addsig(int sig, void(handler)(int), bool restart){
 
 }
 
-//定时处理任务，重新定时以不断触发SIGALRM信号
+//定时处理所有超时连接，重新调用alarm启动本进程的定时器。以不断触发SIGALRM信号
+//需要区别的是：util_timer定时器是我们自己定义的定时器类，而alarm函数启动的定时器是每个进程仅有一个的定时器
 void Utils::timer_handler(){
     m_timer_lst.tick(); //处理所有的超时定时器
     alarm(m_TIMESLOT); //每隔m_TIMESLOT时间触发SIGALRM信号
@@ -171,7 +170,7 @@ void Utils::show_error(int connfd, const char *info){
     close(connfd);
 }
 
-//定时器容器类的tick函数，会调用该回调函数来处理一个超时连接
+//定时器容器类的tick函数，会调用该回调函数来关闭一个超时连接
 void cb_func(client_data* user_data){
 
     //从内核事件表删除非活动连接在socket上的注册事件

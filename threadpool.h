@@ -34,7 +34,7 @@ template<typename T>
 class threadpool{
 public:
     
-    threadpool(int actor_model, /*connection_pool* connPool, */ int thread_number = 8, int max_request = 1000);
+    threadpool(int actor_model, connection_pool* connPool,  int thread_number = 8, int max_request = 1000);
     //将默认实参放在声明中
     ~threadpool();
     bool append(T* request, int state);
@@ -60,9 +60,9 @@ private:
 };
 
 template<typename T>
-threadpool<T>::threadpool(int actor_model, /*connection_pool* connPool, */ int thread_number, int max_request)
+threadpool<T>::threadpool(int actor_model, connection_pool* connPool,  int thread_number, int max_request)
 : m_actor_model(actor_model), m_thread_number(thread_number), m_max_requests(max_request), 
-m_threads(NULL)/*, m_connPool(connPool)*/ {
+m_threads(NULL), m_connPool(connPool) {
 
     if(thread_number <= 0 || max_request <= 0)
         throw std::exception(); 
@@ -74,7 +74,7 @@ m_threads(NULL)/*, m_connPool(connPool)*/ {
     //当自由空间被耗尽时，new表达式就会失败，并抛出一个类型为bad_alloc的异常，所以我觉得这一步判断是画蛇添足
 
     for(int i = 0; i < m_thread_number; ++i){
-        if(pthread_create(&m_threads[i], NULL, run, this) != 0){
+        if(pthread_create(&m_threads[i], NULL, worker, this) != 0){
         //int pthread_create(pthread_t* thread,const pthread_attr_t* attr, void*(*start_routine)(void*), void* arg);
             //第一个参数是 类型为指针的传出参数，线程创建好后，将线程id赋值给这个指针所指的地址
             //第二个参数 NULL表示使用默认属性
@@ -101,6 +101,7 @@ threadpool<T>::~threadpool(){
     delete[] m_threads;
 }
 
+//将http请求放进请求队列。该函数适用于Reactor模式。参数state是该http连接处于的阶段是读阶段还是写阶段
 template<typename T>
 bool threadpool<T>::append(T* request, int state){
 
@@ -111,7 +112,7 @@ bool threadpool<T>::append(T* request, int state){
         return false;
     }
 
-    request->m_state = state;  //应该是设置状态吧。 这里就要求我们的模板实参T要有成员 m_state了
+    request->m_state = state;  //设置http连接状态
     m_workqueue.push_back(request);
     m_queuelocker.unlock(); //解锁
     m_queuestat.post();  //对代表 请求队列中的请求数的信号量 进行V操作
@@ -119,8 +120,10 @@ bool threadpool<T>::append(T* request, int state){
 
 }
 
+//Proactor模式的append。
+//Proactor模式不需要state参数，是因为：Proactor模式下，工作线程不需要负责IO，也就无所谓读阶段还是写阶段
 template<typename T>
-bool threadpool<T>::append_p(T* request){   //只比append少了一个 设置状态的步骤，其他一样。我猜可能是post请求
+bool threadpool<T>::append_p(T* request){ 
     m_queuelocker.lock(); 
     if(m_workqueue.size() >= m_max_requests){
         m_queuelocker.unlock();  
@@ -142,6 +145,7 @@ void* threadpool<T>::worker(void* arg){
 }
 
 //工作线程从请求队列中取出某个任务进行处理
+//如果是Reactor模式，需要工作线程负责IO。Proactor模式不需要工作线程负责IO，只处理业务逻辑即可
 template<typename T>
 void threadpool<T>::run(){    //run函数暂时没法写，因为涉及到具体业务逻辑，下面仅为测试用
 
@@ -182,34 +186,39 @@ void threadpool<T>::run(){    //run函数暂时没法写，因为涉及到具体
         工作线程需要 处理业务逻辑 和I/O（数据的接收和发送）*/
         if (m_actor_model == 1)
         {
-            //读阶段：将请求报文读到缓冲区，并解析，然后将响应报文写入写缓冲区
+            //对该http请求的处理处于 读阶段：将请求报文读到缓冲区，并解析，然后将响应报文写入写缓冲区
             if (request->m_state == 0)
             {
-                if (request->read_once())
+                //工作线程负责IO：将接收到的数据放到读缓冲区
+                int res = request->read_once();
+
+                //标记该连接执行过IO操作
+                request->improv = 1;
+                if (res)
                 {
-                    request->improv = 1;
                     //从连接池中取出一个数据库连接
                     connectionRAII mysqlcon(&request->mysql, m_connPool);
                     request->process();
                 }
-                //无数据可读或对方关闭连接
+
+                //IO失败，设置标记timer_flag，标记该连接应该被关闭
                 else
                 {
-                    //HTPP中的improv和imer_flag的含义目前还不知道，写完在webserver.cpp就知道了
-                    request->improv = 1;
                     request->timer_flag = 1;
                 }
             }
-            //写阶段：将写缓冲区中的响应报文发送给浏览器端
+            //对该http请求的处理处于 写阶段：将写缓冲区中的响应报文发送给浏览器端
             else
             {
-                if (request->write())
+                //工作线程负责IO：将相应报文放进写缓冲区
+                int res = request->write();
+
+                //标记该连接执行过IO操作
+                request->improv = 1;
+
+                //IO失败，设置标记timer_flag，标记该连接应该被关闭
+                if (res == 0)
                 {
-                    request->improv = 1;
-                }
-                else
-                {
-                    request->improv = 1;
                     request->timer_flag = 1;
                 }
             }

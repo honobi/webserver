@@ -19,6 +19,7 @@ int http_conn::m_epollfd = -1;
 locker m_lock;
 map<string, string> users; //用户名为key，密码为value
 
+//从数据库user表中取出用户名和密码放到map容器中
 void http_conn::initmysql_result(connection_pool* connPool){
 
     //先从连接池中取一个连接
@@ -192,8 +193,8 @@ http_conn::LINE_STATUS http_conn::parse_line(){
 
 }
 
-//循环的 将接收到的数据放进 读缓冲区 中，直到无数据可读或对方关闭连接
-//非阻塞ET工作模式下，需要一次性将数据读完
+//将接收到的数据放进 读缓冲区 中
+//ET模式下允许一次调用不读完所有数据；非阻塞ET工作模式下，需要再一次调用内将数据读完
 bool http_conn::read_once()
 {
     //已读完

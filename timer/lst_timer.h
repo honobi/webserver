@@ -10,8 +10,8 @@ class util_timer; //前向声明
 //连接资源的结构体
 struct client_data{
     sockaddr_in address; //客户端socket地址
-    int sockfd;     //socket文件描述符
-    util_timer* timer; //定时器，这里只需要一个util_timer的指针，所以只需要这之前有util_timer的声明即可，不需要完整定义
+    int sockfd;         //socket文件描述符
+    util_timer* timer; //该连接资源使用的 定时器
 };
 
 //定时器类
@@ -40,7 +40,7 @@ private:
 };
 
 
-//该类实现的功能：定时处理非活动连接
+//定时处理连接类，定时处理非活动连接
 class Utils{
 public:
     static int* u_pipefd; //管道写端
@@ -58,7 +58,7 @@ public:
     //对文件描述符设置非阻塞
     int setnonblocking(int fd);
 
-    //将内核事件表注册读事件，ET模式，选择开启EPOLLONESHOT
+
     void addfd(int epollfd, int fd, bool one_shot, int TRIGMode);
 
     //信号处理函数
