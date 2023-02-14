@@ -500,14 +500,14 @@ void WebServer::eventLoop()
                     continue;
             }
             //对端断开TCP连接或 文件描述符发生错误
-            else if (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR) != 0)
+            else if ( (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) != 0)  //位运算优先级很低，比==和!=都低，但是比&&和||要高
             {
                 //服务器端关闭连接，移除对应的定时器
                 util_timer* timer = users_timer[sockfd].timer;
                 deal_timer(timer, sockfd);
             }
             //如果管道写端有信号需要处理。目前只处理SIGALRM和SIGTERM信号
-            else if ((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN))
+            else if ( ((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN)) != 0)
             {
                 //判断管道写端是什么信号。timeout和stop_server是传入传出参数，
                 bool flag = dealwithsignal(timeout, stop_server);
@@ -515,12 +515,12 @@ void WebServer::eventLoop()
                     LOG_ERROR("%s", "dealwithsignal failure");
             }
             //除上面以外，如果有可读事件，表示TCP连接接收到新数据
-            else if (events[i].events & EPOLLIN != 0)
+            else if ( (events[i].events & EPOLLIN) != 0 )
             {
                 dealwithread(sockfd);
             }
             //如果有可写事件，表示需要发送数据
-            else if (events[i].events & EPOLLOUT != 0)
+            else if ( (events[i].events & EPOLLOUT) != 0)
             {
                 dealwithwrite(sockfd);
             }
@@ -538,3 +538,4 @@ void WebServer::eventLoop()
         }
     }
 }
+
