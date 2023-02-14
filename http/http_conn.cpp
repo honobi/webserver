@@ -37,7 +37,7 @@ void http_conn::initmysql_result(connection_pool* connPool){
     while(MYSQL_ROW row = mysql_fetch_row(result)){
         //MYSQL_ROW是一个行结构，类型为char** ，也就是一个字符串数组，每个字符串是一个字段的值
 
-        users[row[0]] = users[row[1]]; 
+        users[row[0]] = row[1]; 
         //用户名为key，密码为value
     }
     
@@ -543,11 +543,11 @@ http_conn::HTTP_CODE http_conn::do_request()
 
         free(m_url_real);
     }
-    //如果请求资源为/7，表示关注界面
+    //如果请求资源为/7，显示与我交流的界面
     else if (*(p + 1) == '7')
     {
         char *m_url_real = (char *)malloc(sizeof(char) * 200);
-        strcpy(m_url_real, "/fans.html");
+        strcpy(m_url_real, "/communicate.html");
         strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
 
         free(m_url_real);
