@@ -14,7 +14,7 @@
 using namespace std;
 
 //类外定义静态变量
-int* Utils::u_pipefd = 0; 
+int* Utils::u_pipefd = NULL; 
 int Utils::u_epollfd = 0; 
 
 
@@ -72,8 +72,12 @@ void sort_timer_lst::tick(){
 }
 
 
-void Utils::init(int timeslot){
+void Utils::init(int timeslot, int epollfd, int* pipefd){
     m_TIMESLOT = timeslot;
+
+    //使用webserver里的epoll和管道
+    u_epollfd = epollfd;
+    u_pipefd = pipefd;
 }
 
 //对文件描述符设置非阻塞
@@ -125,10 +129,11 @@ void Utils::sig_handler(int sig){
     int save_errno = errno;
 
     int msg = sig;
-    send(u_pipefd[1], (char*)msg, 1, 0); //将信号值写入管道写端，以通知主循环
-    //这里是用socket的send函数向管道的写端写入数据。
-    //两点不理解：读写管道为什么不用read和write。 解答：本程序中用的管道是socketpair创建的两个无名socket，所以用send更贴切
-    //          就算用send，那么一个int的长度也是4字节，这里怎么写1
+
+    //将信号值写入管道写端，以通知主循环
+    int res = send(u_pipefd[1], (char*)&msg, 1, 0); 
+    //读写管道为什么不用read和write： 本程序中用的管道是socketpair创建的两个无名socket，所以用send更贴切
+    //     一个int的长度也是4字节，这里怎么写1
     //他这几个函数都抄的游双书，不知道为什么是1
 
     errno = save_errno; //复原errno
@@ -145,7 +150,9 @@ void Utils::addsig(int sig, void(handler)(int), bool restart){
     if(restart == true)
         sa.sa_flags |= SA_RESTART; //为信号设置SA_RESTART标志以自动重启被该信号中断的系统调用
     
-    sigfillset(&sa.sa_mask); //清空我们自己定义的信号集
+    //将sa_mask全部置为1，表示信号处理函数执行期间，阻塞所有信号
+      sigfillset(&sa.sa_mask);
+     //sa_mask作用：在信号处理函数执行期间，sa_mask指定的信号将被阻塞，直到信号处理函数执行完毕。防止这些信号到达后没被处理
 
     assert(sigaction(sig, &sa, NULL) != -1);
     //sigaction函数：设置信号处理。 第一个参数是要捕获的信号类型，第二个参数指定信号处理方式， 第三个参数则输出信号先前的处理方式

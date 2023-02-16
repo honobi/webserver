@@ -30,20 +30,19 @@ WebServer::~WebServer()
     delete m_pool;
 }
 
-void WebServer::init(int port, string user, string passWord, string databaseName, int log_write, 
-                     int opt_linger, int trigmode, int sql_num, int thread_num, int close_log, int actor_model)
+void WebServer::init(Config* config)
 {
-    m_port = port;
-    m_user = user;
-    m_passWord = passWord;
-    m_databaseName = databaseName;
-    m_sql_num = sql_num;
-    m_thread_num = thread_num;
-    m_log_write = log_write;
-    m_OPT_LINGER = opt_linger;
-    m_TRIGMode = trigmode;
-    m_close_log = close_log;
-    m_actormodel = actor_model;
+    m_port = config->PORT;
+    m_user = config->user;
+    m_passWord = config->passwd;
+    m_databaseName = config->databasename;
+    m_sql_num = config->sql_num;
+    m_thread_num = config->thread_num;
+    m_log_write = config->LOGWrite;
+    m_OPT_LINGER = config->OPT_LINGER;
+    m_TRIGMode = config->TRIGMode;
+    m_close_log = config->close_log;
+    m_actormodel = config->actor_model;
 }
 
 //设置listenfd和http连接上读写事件的触发模式
@@ -155,7 +154,7 @@ void WebServer::eventListen()
     assert(ret >= 0);
 
     //初始化 定时处理非活跃连接 的类，设置超时时间
-    utils.init(TIMESLOT);  
+    utils.init(TIMESLOT, m_epollfd, m_pipefd);  
 
     //创建epoll_event数组
     epoll_event events[MAX_EVENT_NUMBER];
@@ -186,7 +185,9 @@ void WebServer::eventListen()
     utils.addfd(m_epollfd, m_pipefd[0], false, 0);
 
 
-    utils.addsig(SIGPIPE, SIG_IGN); //忽略管道破裂时发出的信号
+    //忽略SIGPIPE信号
+    utils.addsig(SIGPIPE, SIG_IGN); 
+    
     //捕捉SIGALRM和SIGTERM信号，处理行为：将信号值写入管道写端
     utils.addsig(SIGALRM, utils.sig_handler, false);  //SIGALRM信号是alarm函数定时结束时发出的信号
     utils.addsig(SIGTERM, utils.sig_handler, false);  //SIGTERM信号是kill命令不加任何选项时，默认发送15号命令，也就是SIGTERM
@@ -194,8 +195,6 @@ void WebServer::eventListen()
     //TIMESLOT之后发送alarm信号
     alarm(TIMESLOT);
 
-    Utils::u_pipefd = m_pipefd;
-    Utils::u_epollfd = m_epollfd;
 }
 
 //生成定时器管理 该连接，同时定时器会被放进升序链表
@@ -475,6 +474,7 @@ void WebServer::eventLoop()
     bool timeout = false;       //是否接收到SIGALRM信号（alarm函数设定的定时器倒计时结束时发出该信号）
     bool stop_server = false;   //是否接收到SIGTERM信号（kill命令默认发出的信号）
 
+
     while (!stop_server)
     {
         //epoll_wait等待事件表中的某个事件发生。超时时间-1表示该函数永久阻塞，直到某个事件发生
@@ -537,5 +537,6 @@ void WebServer::eventLoop()
             timeout = false;
         }
     }
+
 }
 

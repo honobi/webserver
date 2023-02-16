@@ -44,9 +44,13 @@ private:
 
     static void* worker(void*); //静态函数
     void run();
-    //worker函数并不是画蛇添足，是因为pthread_create的第三个参数需要一个静态的成员函数。
+    //pthread_create的第三个参数需要一个静态的成员函数，所以必须在worker函数中调用run函数
     //因为非静态成员函数第一个参数是一个隐式的this指针，与create函数第三个参数要求的void*不匹配，就无法调用create函数。所以不能直接用非static成员函数创建线程
-    //但是我认为run函数和worker函数是可以合并为一个静态函数的，把run函数的内容放进worker里就可以
+    /*那么为什么不使用一个静态函数呢？：
+        静态成员函数只能访问静态成员变量，所以为了能够访问到类内非静态成员变量，
+        需要在worker中调用run这个非静态成员函数来达到这一要求。
+    */
+    
 
     int m_thread_number;  //线程池中的线程数
     int m_max_requests;   //请求队列允许的最大请求数
@@ -140,8 +144,8 @@ void* threadpool<T>::worker(void* arg){
 
     threadpool* pool = (threadpool*)arg; //把void*显示转换成threadpool类型（这里实参应该是一个threadpool的this指针）
     pool->run();
-    return pool; //在这里return一个pool，不知道有什么用
-    //void*类型的返回值与void一样，都是可以不写return的
+    return pool; 
+
 }
 
 //工作线程从请求队列中取出某个任务进行处理

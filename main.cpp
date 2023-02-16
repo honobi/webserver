@@ -2,39 +2,32 @@
 
 using namespace std;
 
-int main(int argc, char* argv[]){
-    //数据库名，用户名，密码
-    string user = "root";
-    string databasename = "my_db";
-    string passwd = "Hhyybwt2021.";
-    
-    
-    Config config;
-    //解析命令行
-    config.parse_arg(argc, argv);
-    
+//使用单例模式的饿汉模式，在程序开始运行时就创建Config对象
+Config* Config::config = new Config();
 
+int main(int argc, char* argv[]){
+    
+    //解析命令行
+    Config::get_instance()->parse_arg(argc, argv);
+    
     WebServer server;
 
-    //初始化
-    server.init(config.PORT, user, passwd, databasename, config.LOGWrite, 
-                config.OPT_LINGER, config.TRIGMode,  config.sql_num,  config.thread_num, 
-                config.close_log, config.actor_model);
+    //初始化webserver配置参数
+    server.init(Config::get_instance());
     
-
-    //日志
+    //是否开启日志
     server.log_write();
 
-    //数据库
+    //创建数据库连接池
     server.sql_pool();
 
-    //线程池
+    //创建线程池
     server.thread_pool();
 
-    //触发模式
+    //设置listenfd和http连接fd上事件的触发模式
     server.trig_mode();
 
-    //监听
+    //监听，以及其他准备工作
     server.eventListen();
 
     //运行

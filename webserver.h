@@ -13,6 +13,7 @@
 #include <cassert>
 #include <sys/epoll.h>
 
+#include "config.h"
 #include "threadpool.h"
 #include "http/http_conn.h"
 
@@ -20,15 +21,15 @@ const int MAX_FD = 65536;           //最大文件描述符
 const int MAX_EVENT_NUMBER = 10000; //最大事件数
 const int TIMESLOT = 5;             //最小超时单位
 
+class Config; //前向声明
+
 class WebServer
 {
 public:
     WebServer();
     ~WebServer();
 
-    void init(int port , std::string user, std::string passWord, std::string databaseName,
-              int log_write , int opt_linger, int trigmode, int sql_num,
-              int thread_num, int close_log, int actor_model);
+    void init(Config* config);
 
     void thread_pool();
     void sql_pool();

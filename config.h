@@ -1,39 +1,40 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <string>
 #include "webserver.h"
 
 class Config
 {
-public:
-    
-    int PORT;           //端口号
-    int LOGWrite;       //日志写入方式
-    int TRIGMode;       //触发组合模式
-    int LISTENTrigmode; //listenfd触发模式
-    int CONNTrigmode;   //connfd触发模式
-    int OPT_LINGER;     //是否使用socket的SO_LINGER选项关闭链接
-    int sql_num;        //数据库连接池数量
-    int thread_num;     //线程池内的线程数量
-    int close_log;      //是否关闭日志
-    int actor_model;    //并发模型选择
+private:
 
-    Config(){
-        PORT = 80;      //端口号默认80
-        LOGWrite = 0;   //日志写入方式，默认同步
-        TRIGMode = 0;   //触发组合模式,默认listenfd LT + connfd LT
-        LISTENTrigmode = 0; //listenfd触发模式，默认LT
-        CONNTrigmode = 0;   //connfd触发模式，默认LT
-        OPT_LINGER = 0; //默认不使用socket的SO_LINGER选项
-        sql_num = 8;    //数据库连接池数量,默认8
-        thread_num = 8; //线程池内的线程数量,默认8
-        close_log = 0;  //默认启用日志
-        actor_model = 0;    //默认proactor模式
-    }
-
+    static Config* config;
+    Config(){ }
     ~Config(){};
 
-    //
+public:
+    
+    static Config* get_instance(){
+        return Config::config;
+    }
+
+    //(c++11)为类内数据成员提供一个类内初始值。创建对象时，类内初始值将用于初始化数据成员，没有初始值的成员被默认初始化。类内初始值只能使用=和花括号
+    int PORT = 80;           //端口号
+    int LOGWrite = 0;       //日志写入方式，默认同步日志
+    int TRIGMode = 0;       //触发组合模式，默认listenfd LT + connfd LT
+    int LISTENTrigmode = 0; //listenfd触发模式，默认LT
+    int CONNTrigmode = 0;   //connfd触发模式，默认LT
+    int OPT_LINGER = 0;     //是否使用socket的SO_LINGER选项关闭链接
+    int sql_num = 8;        //数据库连接池数量
+    int thread_num = 8;     //线程池内的线程数量
+    int close_log = 0;      //是否关闭日志
+    int actor_model = 0;    //并发模型选择，默认proactor模式
+
+    //数据库名，用户名，密码
+    std::string user = "root";
+    std::string passwd = "Hhyybwt2021.";
+    std::string databasename = "my_db";
+    
     void parse_arg(int argc, char*argv[]){
         int opt;
         const char *str = "p:l:m:o:s:t:c:a:";

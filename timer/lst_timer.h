@@ -53,7 +53,7 @@ public:
     Utils() {}
     ~Utils() {}
     
-    void init(int timeslot);
+    void init(int timeslot, int epollfd, int* pipefd);
 
     //对文件描述符设置非阻塞
     int setnonblocking(int fd);
