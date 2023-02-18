@@ -873,9 +873,9 @@ void http_conn::process()
     //调用process_write完成报文响应
     bool write_ret = process_write(read_ret);
 
-    if (!write_ret)
-    {
+    if (!write_ret) {
         close_conn();
+        return;
     }
 
     //重置EPOLLONESHOT

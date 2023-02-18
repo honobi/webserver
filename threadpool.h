@@ -26,7 +26,7 @@ C++采用了分离式编译的方法，.h头文件仅仅是在预处理阶段进
 
 
 #include "locker.h"
-#include "CGImysql/sql_connection_pool.h"
+#include "mysql/sql_connection_pool.h"
 
 
 

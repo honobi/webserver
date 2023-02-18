@@ -1,1 +1,1 @@
-g++ main.cpp  webserver.cpp timer/lst_timer.cpp log/log.cpp http/http_conn.cpp CGImysql/sql_connection_pool.cpp -std=c++11 -pthread -lmysqlclient -o server
+g++ main.cpp  webserver.cpp timer/lst_timer.cpp log/log.cpp http/http_conn.cpp mysql/sql_connection_pool.cpp -std=c++11 -pthread -lmysqlclient -o server

@@ -12,7 +12,7 @@
 #include <sys/mman.h>
 
 #include "../locker.h"
-#include "../CGImysql/sql_connection_pool.h"
+#include "../mysql/sql_connection_pool.h"
 #include "../timer/lst_timer.h"
 #include "../log/log.h"
 

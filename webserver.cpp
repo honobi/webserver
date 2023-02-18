@@ -155,9 +155,6 @@ void WebServer::eventListen()
     //初始化 定时处理非活跃连接 的类，设置超时时间
     utils.init(TIMESLOT, m_epollfd, m_pipefd);  
 
-    //创建epoll_event数组
-    epoll_event events[MAX_EVENT_NUMBER];
-    //epoll_event结构体中存储 要检测的事件类型 和 要检测的文件描述符
 
     //epoll创建内核事件表
     m_epollfd = epoll_create(114514);
