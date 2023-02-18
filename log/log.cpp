@@ -5,11 +5,10 @@
 #include <stdio.h> //fputs、fopen、fclose、fflush等与文件操作有关的头文件，还是snprintf、vsnprintf的头文件
 #include "log.h"
 
-
 using namespace std;
+
 Log::Log():m_count(0), m_is_async(false){ 
     //日志行数初始化为0，以同步的方式启动
-    
 }
 
 Log::~Log(){
@@ -17,47 +16,64 @@ Log::~Log(){
         fclose(m_fp); //关闭文件描述符
 }
 
-bool Log::init(const char *file_name, int close_log, int log_buf_size, int split_lines, int max_queue_size){
+//初始化配置参数，确定异步还是同步，创建日志缓冲区，打开日志文件
+bool Log::init(const char* dir, int close_log, int log_buf_size, int split_lines, int max_queue_size){
     //如果是异步，则需要设置阻塞队列的长度，同步不需要设置，max_queue_size的默认参数是0
 
-    if(max_queue_size > 0){ //当设置了阻塞队列长度，且大于0，那么异步写入
-        m_is_async = true;
-        m_log_queue = new block_queue<string>(max_queue_size); //创建阻塞队列
-        pthread_t tid; //线程id，作为创建线程的传出参数
-        pthread_create(&tid, NULL, flush_log_thread, NULL); //创建线程，让他去异步写日志
-    }
-
+    strcpy(dir_name, dir);
     m_close_log = close_log;
     m_log_buf_size = log_buf_size;
-    m_buf = new char[m_log_buf_size]; //创建缓冲区
-    memset(m_buf, 0, m_log_buf_size); //清空缓冲区
     m_split_lines = split_lines;
+    m_file_cnt = 0;
+    //创建并清空日志缓冲区
+    m_buf = new char[m_log_buf_size]; 
+    memset(m_buf, 0, m_log_buf_size); 
 
+
+    //异步日志
+    if(max_queue_size > 0){ //阻塞队列长度大于0，那么异步写入
+        m_is_async = true;
+
+        //创建阻塞队列
+        m_log_queue = new block_queue<string>(max_queue_size); 
+
+        //创建新线程，让该线程异步写日志
+        pthread_t tid; 
+        pthread_create(&tid, NULL, async_log_thread, NULL); 
+    }
+
+    //下面的全部操作都是：确定文件名，然后创建日志文件
+
+    //读取file_num文件中 当日日志文件数
+    char* file_num_name = new char[256];
+    strcpy(file_num_name, dir_name);
+    strcat(file_num_name, "/file_num");
+    FILE* file_num = fopen(file_num_name, "a+");
+    int read_res = fread(&m_file_cnt, sizeof(int), 1, file_num);
+    //如果文件为空，写入当日日志文件数：0
+    if(read_res == 0){
+        fwrite(&m_file_cnt, sizeof(int), 1, file_num);
+    }
+    
+    
+    //获取当前时间
     time_t t = time(NULL); //返回Unix纪元至今的秒数
     struct tm* sys_tm = localtime(&t); //将秒数时间转换为日历形式的本地时间tm
     struct tm my_tm = *sys_tm;  
-    //localtime()函数返回的是一个静态变量的指针，下次再调用localtime就变了，所以我们需要用一个局部变量把时间保存下来
-
-    const char* p = strrchr(file_name, '/'); //在以\0结尾的字符串中寻找 该字符最后出现的位置，如果没出现，则返回值为NULL，否则返回字符位置的指针
-    char log_full_name[256] = {0}; //保存将要创建的日志文件的名称
-
-    //获取文件名称
-    if(p == NULL){ //如果函数实参file_name不包含斜杠/，说明file_name是一个相对路径，那么直接以日期+file_name作为日志的文件名
-        snprintf(log_full_name, 255, "%d_%02d_%02d_%s", my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday, file_name);
-        /*snprintf函数：int snprintf( char* buffer, std::size_t buf_size, const char* format, ... );
-        将结果结果到字符串 buffer，至多写 buf_size - 1 个字符，产生的字符串会以空字符终止。
-        %02d表示不足2位的使用前导0
-        */
-    }
-    else{ //如果函数实参file_name包含斜杠/，说明file_name是绝对路径，我们需要把路径名和文件名分开来，然后以日期+不含路径的文件名 作为日志的文件名
-        strcpy(log_name, p + 1); //将/之后的文件名存放到成员变量log_name中
-        strncpy(dir_name, file_name, p - file_name + 1); //将file_name中的路径 保存到 成员变量dir_name中
-        snprintf(log_full_name, 255, "%s%d_%02d_%02d_%s", dir_name, my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday, log_name);
-    }
+    //localtime()函数返回的是一个静态变量的指针，下一次再调用localtime内容就变了，所以我们需要用一个局部变量把时间保存下来
 
     m_today = my_tm.tm_mday;
 
-    m_fp = fopen(log_full_name, "a"); //"a"以追加的方式打开文件，如果不存在则创建新文件
+    char log_full_name[256] = {0}; //日志文件名
+
+    snprintf(log_full_name, 255, "%s//%d_%02d_%02d_Log_%d", dir_name,  my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday, m_file_cnt + 1);
+
+    m_fp = fopen(log_full_name, "a+"); //创建新文件
+
+    //更新文件数，并写入文件
+    m_file_cnt++;
+    fwrite(&m_file_cnt, sizeof(int), 1, file_num);
+    fclose(file_num);
 
     if(m_fp == NULL){
         return false; //文件打开/创建失败，那么init失败
@@ -66,13 +82,16 @@ bool Log::init(const char *file_name, int close_log, int log_buf_size, int split
 
 }
 
+//先向缓冲区写入一条日志，然后再把缓冲区的字符串写到文件(同步或异步)
 void Log::write_log(int level, const char* format, ...){
+    /*日志中的时间需要用日历类型来记录，而且精度需要精确到微秒，但是日历类型时间最多只精确到秒，
+      方法：先用一个gettimeofday获取 秒+微秒，然后把秒转换为日历类型，再加上微秒，就得到了精确到微秒的日历类型*/
     struct timeval now = {0, 0}; //{秒，微秒}
     gettimeofday(&now, NULL); //将Unix纪元时间放进now中
-    time_t t = now.tv_sec; //不知道为什么这三行多此一举，直接一个time函数不就代替这三行了吗
-    struct tm* sys_tm = localtime(&t); //将秒数类型时间转换为本地日历类型时间
+    time_t t = now.tv_sec; 
+    struct tm* sys_tm = localtime(&t); //秒数类型转换为本地日历类型
     struct tm my_tm = *sys_tm;
-    //localtime()函数返回的是一个静态变量的指针，下次再调用localtime就变了，所以我们需要用一个局部变量把时间保存下来
+    //localtime函数返回的是一个静态变量的指针，需要用一个局部变量把时间保存下来
 
     char s[16] = {0};
     switch(level){
@@ -96,56 +115,70 @@ void Log::write_log(int level, const char* format, ...){
     m_mutex.lock(); //之后要访问共享资源，在这里上锁
     m_count++; //写入一条日志，那么日志行数+1
 
-    if(m_today != my_tm.tm_mday || m_count % m_split_lines == 0){ //如果时间到了第二天，或者日志到达了最大行数
+    //如果时间到了第二天，或者日志到达了最大行数，需要创建新的日志文件
+    if(m_today != my_tm.tm_mday || m_count % m_split_lines == 0){ 
 
         char new_log[256] = {0};
-        fflush(m_fp); //int fflush( FILE *stream );刷新缓冲区，将输出流stream的缓冲区的内容刷新到对应的输出设备中，在这里就是刷新到文件中
-        fclose(m_fp);
+        fclose(m_fp); //刷新文件缓冲区 并 关闭文件描述符
 
-        char tail[16] = {0}; //保存日期
-        snprintf(tail, 16, "%d_%02d_%02d_", my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday);
+        char day[16] = {0}; //保存日期
+        snprintf(day, 16, "%d_%02d_%02d", my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday);
 
-        if(m_today != my_tm.tm_mday){ //如果是时间到了第二天
-            snprintf(new_log, 255, "%s%s%s", dir_name, tail, log_name);
-            m_today = my_tm.tm_mday; //更新当前是哪一天的成员变量
-            m_count = 0; //日志行数清0
+        //如果是时间到了第二天
+        if(m_today != my_tm.tm_mday){ 
+            m_file_cnt = 0;
+            snprintf(new_log, 255, "%s//%s_Log_%d", dir_name, day, m_file_cnt + 1);
+            m_today = my_tm.tm_mday; 
+            m_count = 0; 
+
         }
-        else{ //如果是日志到达了最大行数，那么新文件的名字是原文件名+1,2,3,4....表示当天的第几个文件
-            snprintf(new_log, 255, "%s%s%s.%lld", dir_name, tail, log_name, m_count / m_split_lines);
+        //如果是日志到达了单个日志最大行数，那么新文件的名字是原文件名+1,2,3,4....表示当天的第几个文件
+        else{ 
+            snprintf(new_log, 255, "%s//%s_Log_%d", dir_name, day, m_file_cnt + 1);
         }
-
-        m_fp = fopen(new_log, "a"); //创建新文件
-
+        //创建新文件
+        m_fp = fopen(new_log, "a+"); 
+        //更新当日文件数，并写入文件
+        m_file_cnt++;
+        char* file_num_name = new char[256];
+        strcpy(file_num_name, dir_name);
+        strcat(file_num_name, "/file_num");
+        FILE* file_num = fopen(file_num_name, "a+");
+        fwrite(&m_file_cnt, sizeof(int), 1, file_num);
+        fclose(file_num);
+    
     }
     m_mutex.unlock();
 
     va_list valst; //指向可变参数的指针
     va_start(valst, format); //va_start 宏初始化刚定义的va_list变量
 
-    string log_str; //提前构造log_str是为了不在加锁之后再构造，减少占用共享资源的时间
     m_mutex.lock();
 
-    //写入的具体时间内容格式
+    //向缓冲区的开头写入时间，n为写入的字符数
     int n = snprintf(m_buf, 48, "%d-%02d-%02d %02d:%02d:%02d.%06ld %s ",
                      my_tm.tm_year + 1900, my_tm.tm_mon + 1, my_tm.tm_mday,
                      my_tm.tm_hour, my_tm.tm_min, my_tm.tm_sec, now.tv_usec, s);
-    //n为写入的字符数
-    int m = vsnprintf(m_buf + n, m_log_buf_size - 1, format, valst); //该函数第4个参数类型就是va_list，所以可以直接把valst传给他
-    /*int vsnprintf( char* buffer, std::size_t buf_size, const char* format, va_list vlist );
-        写结果到字符串 buffer 。至多写入 buf_size - 1 个字符。结果字符串将以空字符终止。
-        返回值：若成功则返回写入的字符数 */
+
+    //向缓冲区写入日志内容，m为写入的字符数
+    int m = vsnprintf(m_buf + n, m_log_buf_size - 1, format, valst);
+    //vsnprintf接受可变参数va_list
+    
     m_buf[n + m] = '\n';
-    m_buf[n + m + 1] = '\0';
-    log_str = m_buf;
+    m_buf[n + m + 1] = '\0';   //此时\0之后可能有之前的数据，但是都在\0后面，就不会影响当前要写入的字符串
+
 
     m_mutex.unlock();
 
-    if(m_is_async && m_log_queue->full() == false){  //如果是异步日志，而且阻塞队列没满
-        m_log_queue->push(log_str); //把要写入的日志放进阻塞队列
+    //如果是异步日志，而且阻塞队列没满，那么把要写入的日志放进阻塞队列
+    if(m_is_async && m_log_queue->full() == false){  
+        string log_str;
+        m_log_queue->push(log_str); 
     }
-    else{ //如果是同步日志，或者阻塞队列满了，那么直接往文件里写
+    //如果是同步日志，那么直接往文件里写
+    else{ 
         m_mutex.lock();
-        fputs(log_str.c_str(), m_fp); //将C字符串写入流，一直读到\0为止，但不会把\0写入流
+        fputs(m_buf, m_fp); //将C字符串写入流，一直读到\0为止，但不会把\0写入流
         m_mutex.unlock();
     }
 
@@ -153,9 +186,21 @@ void Log::write_log(int level, const char* format, ...){
 
 }
 
-void Log::flush(){ //强制刷新缓冲区
+void* Log::async_write_log(){ 
+        std::string single_log;
+        while(m_log_queue->pop(single_log)){ //从阻塞队列中取出一条日志
+            m_mutex.lock();
+            fputs(single_log.c_str(), m_fp);//写入文件
+            /*int fputs ( const char * str, FILE * stream ) 
+            将C字符串写入流，一直读到\0为止，但不会把\0写入流
+            */
+            m_mutex.unlock();
+        }
+    }
+
+void Log::flush(){ 
     m_mutex.lock();
-    fflush(m_fp); //刷新缓冲区，将输出流的缓冲区的内容刷新到对应的输出设备中，在这里就是刷新到文件中
+    fflush(m_fp); //刷新文件缓冲区
     m_mutex.unlock();
 }
 

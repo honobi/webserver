@@ -1,0 +1,130 @@
+2023-02-18 15:08:11.285063 [info]: timer tick
+2023-02-18 15:08:11.341278 [info]: deal with the client(222.161.207.68)
+2023-02-18 15:08:11.341333 [info]: adjust timer once
+2023-02-18 15:08:11.341344 [info]: POST /5 HTTP/1.1
+2023-02-18 15:08:11.341391 [info]: Host: luanshuai.club
+2023-02-18 15:08:11.341396 [info]: User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49
+2023-02-18 15:08:11.341400 [info]: oop!unknow header: User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49
+2023-02-18 15:08:11.341404 [info]: Content-Length: 0
+2023-02-18 15:08:11.341409 [info]: Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+2023-02-18 15:08:11.341413 [info]: oop!unknow header: Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+2023-02-18 15:08:11.341416 [info]: Accept-Encoding: gzip, deflate
+2023-02-18 15:08:11.341420 [info]: oop!unknow header: Accept-Encoding: gzip, deflate
+2023-02-18 15:08:11.341424 [info]: Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+2023-02-18 15:08:11.341427 [info]: oop!unknow header: Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+2023-02-18 15:08:11.341431 [info]: Cache-Control: max-age=0
+2023-02-18 15:08:11.341434 [info]: oop!unknow header: Cache-Control: max-age=0
+2023-02-18 15:08:11.341438 [info]: Content-Type: application/x-www-form-urlencoded
+2023-02-18 15:08:11.341441 [info]: oop!unknow header: Content-Type: application/x-www-form-urlencoded
+2023-02-18 15:08:11.341445 [info]: Origin: http://luanshuai.club
+2023-02-18 15:08:11.341450 [info]: oop!unknow header: Origin: http://luanshuai.club
+2023-02-18 15:08:11.341454 [info]: Referer: http://luanshuai.club/2CGISQL.cgi
+2023-02-18 15:08:11.341457 [info]: oop!unknow header: Referer: http://luanshuai.club/2CGISQL.cgi
+2023-02-18 15:08:11.341461 [info]: Upgrade-Insecure-Requests: 1
+2023-02-18 15:08:11.341464 [info]: oop!unknow header: Upgrade-Insecure-Requests: 1
+2023-02-18 15:08:11.341467 [info]: 
+2023-02-18 15:08:11.341492 [info]: request:HTTP/1.1 200 OK
+
+2023-02-18 15:08:11.341498 [info]: request:HTTP/1.1 200 OK
+Content-Length:328
+
+2023-02-18 15:08:11.341502 [info]: request:HTTP/1.1 200 OK
+Content-Length:328
+Connection:close
+
+2023-02-18 15:08:11.341506 [info]: request:HTTP/1.1 200 OK
+Content-Length:328
+Connection:close
+
+
+2023-02-18 15:08:11.341544 [info]: close fd 16
+2023-02-18 15:08:11.400540 [info]: deal with the client(222.161.207.68)
+2023-02-18 15:08:11.400584 [info]: adjust timer once
+2023-02-18 15:08:11.400595 [info]: GET /Elysia.jpg HTTP/1.1
+2023-02-18 15:08:11.400626 [info]: Host: luanshuai.club
+2023-02-18 15:08:11.400630 [info]: User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49
+2023-02-18 15:08:11.400634 [info]: oop!unknow header: User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49
+2023-02-18 15:08:11.400639 [info]: Accept: image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+2023-02-18 15:08:11.400642 [info]: oop!unknow header: Accept: image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+2023-02-18 15:08:11.400646 [info]: Accept-Encoding: gzip, deflate
+2023-02-18 15:08:11.400649 [info]: oop!unknow header: Accept-Encoding: gzip, deflate
+2023-02-18 15:08:11.400653 [info]: Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+2023-02-18 15:08:11.400657 [info]: oop!unknow header: Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+2023-02-18 15:08:11.400660 [info]: Referer: http://luanshuai.club/5
+2023-02-18 15:08:11.400663 [info]: oop!unknow header: Referer: http://luanshuai.club/5
+2023-02-18 15:08:11.400667 [info]: 
+2023-02-18 15:08:11.400682 [info]: request:HTTP/1.1 200 OK
+
+2023-02-18 15:08:11.400697 [info]: request:HTTP/1.1 200 OK
+Content-Length:2187790
+
+2023-02-18 15:08:11.400701 [info]: request:HTTP/1.1 200 OK
+Content-Length:2187790
+Connection:close
+
+2023-02-18 15:08:11.400704 [info]: request:HTTP/1.1 200 OK
+Content-Length:2187790
+Connection:close
+
+
+2023-02-18 15:08:11.400840 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.400849 [info]: adjust timer once
+2023-02-18 15:08:11.527308 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.527349 [info]: adjust timer once
+2023-02-18 15:08:11.590351 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.590410 [info]: adjust timer once
+2023-02-18 15:08:11.654628 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.654703 [info]: adjust timer once
+2023-02-18 15:08:11.697262 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.697304 [info]: adjust timer once
+2023-02-18 15:08:11.783014 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.783089 [info]: adjust timer once
+2023-02-18 15:08:11.847890 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.847953 [info]: adjust timer once
+2023-02-18 15:08:11.891097 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.891208 [info]: adjust timer once
+2023-02-18 15:08:11.955640 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:11.955739 [info]: adjust timer once
+2023-02-18 15:08:12.021635 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:12.021678 [info]: adjust timer once
+2023-02-18 15:08:12.086671 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:12.086762 [info]: adjust timer once
+2023-02-18 15:08:12.215889 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:12.215953 [info]: adjust timer once
+2023-02-18 15:08:12.438284 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:12.438331 [info]: adjust timer once
+2023-02-18 15:08:12.801087 [info]: send data to the client(222.161.207.68)
+2023-02-18 15:08:12.801196 [info]: adjust timer once
+2023-02-18 15:08:12.993699 [info]: close fd 16
+2023-02-18 15:08:13.067417 [info]: deal with the client(222.161.207.68)
+2023-02-18 15:08:13.067464 [info]: adjust timer once
+2023-02-18 15:08:13.067475 [info]: GET /favicon.ico HTTP/1.1
+2023-02-18 15:08:13.067501 [info]: Host: luanshuai.club
+2023-02-18 15:08:13.067513 [info]: User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49
+2023-02-18 15:08:13.067517 [info]: oop!unknow header: User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.49
+2023-02-18 15:08:13.067522 [info]: Accept: image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+2023-02-18 15:08:13.067541 [info]: oop!unknow header: Accept: image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+2023-02-18 15:08:13.067547 [info]: Accept-Encoding: gzip, deflate
+2023-02-18 15:08:13.067555 [info]: oop!unknow header: Accept-Encoding: gzip, deflate
+2023-02-18 15:08:13.067560 [info]: Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+2023-02-18 15:08:13.067565 [info]: oop!unknow header: Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
+2023-02-18 15:08:13.067570 [info]: Referer: http://luanshuai.club/2CGISQL.cgi
+2023-02-18 15:08:13.067575 [info]: oop!unknow header: Referer: http://luanshuai.club/2CGISQL.cgi
+2023-02-18 15:08:13.067580 [info]: 
+2023-02-18 15:08:13.067600 [info]: request:HTTP/1.1 200 OK
+
+2023-02-18 15:08:13.067608 [info]: request:HTTP/1.1 200 OK
+Content-Length:126999
+
+2023-02-18 15:08:13.067612 [info]: request:HTTP/1.1 200 OK
+Content-Length:126999
+Connection:close
+
+2023-02-18 15:08:13.067615 [info]: request:HTTP/1.1 200 OK
+Content-Length:126999
+Connection:close
+
+
+2023-02-18 15:08:13.067796 [info]: close fd 16
+2023-02-18 15:08:16.285119 [info]: timer tick
+2023-02-18 15:08:21.285163 [info]: timer tick

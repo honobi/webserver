@@ -45,7 +45,7 @@ public:
         //NO_RESOURCE：请求文件不存在
         //FORBIDDEN_REQUEST：没有请求文件的访问权限
         //FILE_REQUEST：请求文件存在，且可以访问
-        //CLOSED_CONNECTION：
+        //CLOSED_CONNECTION：没用到
 
     static const int FILENAME_LEN = 200;        //文件名最大长度
     static const int READ_BUFFER_SIZE = 2048;   //读缓冲区大小
@@ -65,28 +65,26 @@ public:
     //初始化连接
     void init(int sockfd, const sockaddr_in &addr, char *root, int TRIGMode,
             int close_log, std::string user, std::string passwd, std::string sqlname);
-    void close_conn(bool real_close = true); //关闭连接
-    void process();   //读请求报文，写响应报文
+    void close_conn(bool real_close = true); 
+    void process();   
     bool read_once(); //读取浏览器端发来的全部数据
-    bool write();   //响应报文写入函数
+    bool write();   
 
     sockaddr_in* get_address(){ return &m_address; }
     void initmysql_result(connection_pool *connPool); //同步线程初始化数据库读取表
 
     
-
-
 private:
     void init();
-    HTTP_CODE process_read();   //从m_read_buf读取，并处理请求报文
-    bool process_write(HTTP_CODE ret);      //向m_write_buf写入响应报文数据
-    HTTP_CODE parse_request_line(char *text);   //主状态机解析报文中的请求行数据
-    HTTP_CODE parse_headers(char *text);        //主状态机解析报文中的请求头数据
-    HTTP_CODE parse_content(char *text);        //主状态机解析报文中的请求内容
-    HTTP_CODE do_request();                     //生成响应报文
+    HTTP_CODE process_read();   
+    bool process_write(HTTP_CODE ret);      
+    HTTP_CODE parse_request_line(char *text);  
+    HTTP_CODE parse_headers(char *text);        
+    HTTP_CODE parse_content(char *text);        
+    HTTP_CODE do_request();                     
 
     char *get_line() { return m_read_buf + m_start_line; }; //获取指向本行开头的指针
-    LINE_STATUS parse_line();       //从状态机读取一行，分析是请求报文的哪一部分
+    LINE_STATUS parse_line();       
     void unmap();
 
     //根据响应报文格式，生成对应8个部分，以下函数均由do_request调用

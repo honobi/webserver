@@ -7,33 +7,25 @@
 
 class Log{
 private:
-    char dir_name[128]; //路径名
-    char log_name[128]; //log文件名
-    int m_split_lines; //日志最大行数
+    char dir_name[128]; //日志文件存放的路径
+    int m_split_lines; //单个日志文件最大日志条数，这个并不是行数，因为一条日志并不止一行
+    int m_file_cnt;    //当日创建的日志文件数
     int m_log_buf_size; //日志缓冲区大小
-    long long m_count; //当前日志行数
+    char* m_buf;  //日志缓冲区，存放一条日志
+    long long m_count; //当前日志总行数
     int m_today; //记录当天是哪一天，方便判断是否到了第二天，创建日志新文件
     FILE* m_fp;  //打开log的文件指针
-    char* m_buf;  //要输出的内容
-    block_queue<std::string>* m_log_queue; //阻塞队列
-    bool m_is_async; //是否同步的标志位
-    locker m_mutex;
-    int m_close_log;  //关闭日志功能
+    int m_close_log;  //是否关闭日志功能
+    bool m_is_async; //是否开启异步
 
-    Log(); //构造函数设置为private
-    virtual ~Log(); //类里面一个虚函数都没有，不知道为什么要把析构设置为vitual的，难道未雨绸缪？可是vitual是需要额外成本的
+    block_queue<std::string>* m_log_queue; //阻塞队列
+    locker m_mutex;
     
-    void* async_write_log(){ //异步写日志
-        std::string single_log;
-        while(m_log_queue->pop(single_log)){ //从阻塞队列中取出一条日志
-            m_mutex.lock();
-            fputs(single_log.c_str(), m_fp);//写入文件
-            /*int fputs ( const char * str, FILE * stream ) 
-            将C字符串写入流，一直读到\0为止，但不会把\0写入流
-            */
-            m_mutex.unlock();
-        }
-    }
+
+    Log(); //单例模式，构造函数设置为private
+    ~Log(); 
+    
+    void* async_write_log(); //异步日志
 
 public:
     static Log* get_instance(){
@@ -41,8 +33,8 @@ public:
         return &instance;
     }
 
-    static void* flush_log_thread(void* args){ 
-        //这个函数的作用与线程池里的run和worker关系是一样的，都是因为创建线程不能使用非static成员函数
+    static void* async_log_thread(void* args){ 
+        //async_log_thread与async_write_log函数的关系与线程池里的worker和run的关系是一样的
         get_instance()->async_write_log(); 
     }
 
@@ -59,10 +51,10 @@ public:
 };
 
 //这四个宏定义在其他文件中使用，主要用于不同类型的日志输出
-#define LOG_DEBUG(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(0, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_INFO(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(1, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_WARN(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(2, format, ##__VA_ARGS__); Log::get_instance()->flush();}
-#define LOG_ERROR(format, ...) if(0 == m_close_log) {Log::get_instance()->write_log(3, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_DEBUG(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(0, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_INFO(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(1, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_WARN(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(2, format, ##__VA_ARGS__); Log::get_instance()->flush();}
+#define LOG_ERROR(format, ...) if(m_close_log == 0) {Log::get_instance()->write_log(3, format, ##__VA_ARGS__); Log::get_instance()->flush();}
 //...表示可变参数，__VA_ARGS__就是将...对应的实参替换到到该处。
 //##的作用：在某次宏调用时，如果##后的形参对应的实参个数为0个，那么把形参替换为空
 
