@@ -2,8 +2,8 @@
 
 using namespace std;
 
-WebServer::WebServer()
-{
+WebServer::WebServer() {
+
     //在程序一开始就创建MAX_FD个http_conn对象 和 包含定时器的连接资源结构体
     users = new http_conn[MAX_FD];
     users_timer = new client_data[MAX_FD];
@@ -18,8 +18,7 @@ WebServer::WebServer()
     
 }
 
-WebServer::~WebServer()
-{
+WebServer::~WebServer() {
     close(m_epollfd);
     close(m_listenfd);
     close(m_pipefd[1]);
@@ -29,8 +28,7 @@ WebServer::~WebServer()
     delete m_pool;
 }
 
-void WebServer::init(Config* config)
-{
+void WebServer::init(Config* config) {
     m_port = config->PORT;
     m_user = config->user;
     m_passWord = config->passwd;
@@ -45,8 +43,7 @@ void WebServer::init(Config* config)
 }
 
 //设置listenfd和http连接上读写事件的触发模式
-void WebServer::trig_mode()
-{
+void WebServer::trig_mode() {
     //LT + LT
     if (m_TRIGMode == 0)
     {
@@ -73,12 +70,11 @@ void WebServer::trig_mode()
     }
 }
 
-void WebServer::log_write()
-{
+void WebServer::log_write() {
+
     //不关闭日志，也就是打开日志功能
-    if (m_close_log == 0)
-    {
-        //初始化日志
+    if (m_close_log == 0) {
+
         //异步日志，阻塞队列大小设置为800
         if (m_log_write == 1)
             Log::get_instance()->init("./ServerLog", m_close_log, 2000, 800000, 800);
@@ -88,8 +84,7 @@ void WebServer::log_write()
     }
 }
 
-void WebServer::sql_pool()
-{
+void WebServer::sql_pool() {
     //初始化数据库连接池
     m_connPool = connection_pool::get_instance();
     m_connPool->init("localhost", m_user, m_passWord, m_databaseName, 3306, m_sql_num, m_close_log);
@@ -99,50 +94,46 @@ void WebServer::sql_pool()
 }
 
 //线程池
-void WebServer::thread_pool()
-{
+void WebServer::thread_pool() {
     m_pool = new threadpool<http_conn>(m_actormodel, m_connPool, m_thread_num);
 }
 
 
-void WebServer::eventListen()
-{
-    //网络编程基础步骤
+void WebServer::eventListen() {
 
     //创建socket
     m_listenfd = socket(PF_INET, SOCK_STREAM, 0);
     assert(m_listenfd >= 0);
 
-    //是否优雅的关闭连接
-    if (m_OPT_LINGER == 0)
-    {   
-        //linger结构体的l_onoff(开关)成员设置为0，表示该选项关闭，close将用默认行为关闭socket
-        //即：close 将立即返回，TCP模块负责把该socket对应的TCP发送缓冲区中残留的数据发送给对方
-        struct linger tmp = {0, 1};
+    //使用SO_LINGER选项
+    if (m_OPT_LINGER == 1) {
+        struct linger tmp = {0};
+        tmp.l_onoff = 1;
+        tmp.l_linger = 1;
         setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
-    }
-    else if (m_OPT_LINGER == 1)
-    {
+        /*默认情况下，无论是阻塞socket还是非阻塞socket。当我们使用close系统调用来关闭一个socket时，
+        close 将立即返回，TCP模块负责把该socket对应的TCP发送缓冲区中残留的数据发送给对方。*/
         //linger结构体的l_onoff(开关)成员设置为1，表示该选项开启
-        /*如果socket是阻塞的，close 将等待一段长为l_linger的时间，直到TCP模块发送完所有残留数据并得到对方的确认。
-            如果这段时间内TCP模块没有发送完残留数据并得到对方的确认，那么close系统调用将返回-1并设置errno为 EWOULDBLOCK。
-        //如果socket是非阻塞的，close将立即返回，此时我们需要根据其返回值和errno来判断残留数据是否已经发送完毕 */
-        struct linger tmp = {1, 1};
-        setsockopt(m_listenfd, SOL_SOCKET, SO_LINGER, &tmp, sizeof(tmp));
-        //l_linger的单位依赖于实现，4.4BSD假设其单位是时钟滴答（百分之一秒），但Posix.1g规定单位为秒。
+        /*如果socket是阻塞的，close 将等待一段长为l_linger的时间，让之前已发送但尚未确认的数据被对端接收到并发送ACK确认，
+            如果在这个时间内数据传输完毕，close函数将返回0；否则，将返回-1，并设置errno为EWOULDBLOCK（或者EAGAIN）
+          如果socket是非阻塞的，close函数会立即返回，并且不会等待之前已发送但尚未确认的数据被对端接收到。
+            这时候，如果剩余数据没有发送完毕，这些数据将会被丢弃，也就是说它们永远不会被发送给对端 */
+        
     }
 
     //创建socket地址，并设置协议族、端口号、IP
-    int ret = 0;
     struct sockaddr_in address;
     bzero(&address, sizeof(address));
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
     address.sin_port = htons(m_port);
-
+    address.sin_addr.s_addr = INADDR_ANY;  //INADDR_ANY为0（0.0.0.0），表示本机所有ip
+    //或者：inet_pton(AF_INET, "0.0.0.0", &address.sin_addr); // 将点分十进制IP地址转换为网络字节序的二进制IP地址
+    
     //端口复用
     int flag = 1;
     setsockopt(m_listenfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
+
+    int ret = 0;
 
     //将监听socket与socket地址绑定
     ret = bind(m_listenfd, (struct sockaddr *)&address, sizeof(address));

@@ -1,9 +1,20 @@
 #ifndef LST_TIMER
 #define LST_TIMER
 
+#include <fcntl.h>
+#include <sys/epoll.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h> //memset头文件
+#include <error.h>
+#include<sys/types.h>
+#include <sys/socket.h> 
+#include <assert.h>
+#include <unistd.h>
 #include <list>
 #include <arpa/inet.h>
 #include "../log/log.h"
+#include "../http/http_conn.h"
 
 class util_timer; //前向声明
 
@@ -15,9 +26,10 @@ struct client_data{
 };
 
 //定时器类
-class util_timer{
+class util_timer {   
+    //util 是 utility 的缩写，表示实用工具、工具类
 public:
-    time_t expire;  //该定时器被设定的目标时间
+    time_t expire;  //到期时间
     void (*cb_func)(client_data*); //当定时器超时时，用于处理该定时器的回调函数
     client_data* user_data;  //连接资源
 

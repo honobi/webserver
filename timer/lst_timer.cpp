@@ -1,15 +1,4 @@
-#include <fcntl.h>
-#include <sys/epoll.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h> //memset头文件
-#include <error.h>
-#include<sys/types.h>
-#include <sys/socket.h> 
-#include <assert.h>
-#include <unistd.h>
 #include "lst_timer.h"
-#include "../http/http_conn.h"
 
 using namespace std;
 
@@ -112,15 +101,6 @@ void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
     
 }
 
-/*信号是一种异步事件:信号处理函数和程序的主循环是两条不同的执行路线。很显然，信号处理函数需要尽可能快地执行完毕，
-以确保该信号不被屏蔽太久(前面提到过，为了避免一些竞态条件，信号在处理期间，系统不会再次触发它)。
-一种典型的解决方案是：把信号的主要处理逻辑放到程序的主循环中，当信号处理函数被触发时， 它只是简单地通知主循环程序接收到信号，
-并把信号值传递给主循环，主循环再根据接收到的信号值执行目标信号对应的逻辑代码。
-信号处理函数通常使用管道来将信号"传递"给主循环：信号处理函数往管道的写端写入信号值，主循环则从管道的读端读出该信号值。
-那么主循环怎么知道管道上何时有数据可读呢?这很简单，我们只需要使用I/O复用系统调用来监听管道的读端文件描述符上的可读事件。
-如此一来，信号事件就能和其他I/O事件一样被处理，即统一事件源。
-*/
-
 //信号处理函数：只是简单地通知主循环程序接收到信号，并把信号值传递给主循环
 void Utils::sig_handler(int sig){
 
@@ -131,10 +111,7 @@ void Utils::sig_handler(int sig){
     int msg = sig;
 
     //将信号值写入管道写端，以通知主循环
-    int res = send(u_pipefd[1], (char*)&msg, 1, 0); 
-    //读写管道为什么不用read和write： 本程序中用的管道是socketpair创建的两个无名socket，所以用send更贴切
-    //     一个int的长度也是4字节，这里怎么写1
-    //他这几个函数都抄的游双书，不知道为什么是1
+    int res = send(u_pipefd[1], (char*)&msg, sizeof(int), 0); 
 
     errno = save_errno; //复原errno
 }
@@ -143,35 +120,28 @@ void Utils::sig_handler(int sig){
 void Utils::addsig(int sig, void(handler)(int), bool restart){
 
     struct sigaction sa; //创建sigaction结构体变量
-    memset(&sa, 0, sizeof(sa)); //把内存清零
+    memset(&sa, 0, sizeof(sa)); 
 
     sa.sa_handler = handler; //结构体中的sa_hander成员指定信号处理函数
 
     if(restart == true)
         sa.sa_flags |= SA_RESTART; //为信号设置SA_RESTART标志以自动重启被该信号中断的系统调用
     
-    //将sa_mask全部置为1，表示信号处理函数执行期间，阻塞所有信号
+    //将sa_mask全部置为1，表示信号处理函数执行期间，阻塞所有信号,直到信号处理函数执行完毕。防止这些信号被屏蔽
       sigfillset(&sa.sa_mask);
-     //sa_mask作用：在信号处理函数执行期间，sa_mask指定的信号将被阻塞，直到信号处理函数执行完毕。防止这些信号到达后没被处理
 
+    //设置信号处理函数
     assert(sigaction(sig, &sa, NULL) != -1);
-    //sigaction函数：设置信号处理。 第一个参数是要捕获的信号类型，第二个参数指定信号处理方式， 第三个参数则输出信号先前的处理方式
-    /*assert：意思：明确肯定、断言。void assert( int expression );
-     assert的作用是先计算表达式expression，如果其值为假，那么它先向stderr(标准错误)打印一条出错信息，然后通过调用abort来终止程序运行 */
-
+    
 }
 
 //定时处理所有超时连接，重新调用alarm启动本进程的定时器。以不断触发SIGALRM信号
-//需要区别的是：util_timer定时器是我们自己定义的定时器类，而alarm函数启动的定时器是每个进程仅有一个的定时器
 void Utils::timer_handler(){
     m_timer_lst.tick(); //处理所有的超时定时器
     alarm(m_TIMESLOT); //每隔m_TIMESLOT时间触发SIGALRM信号
-
-    /*alarm:设置定时器，单位秒。函数调用的时候开始计时，结束时会给 当前进程 发送一个SIGALARM信号 
-      这个定时器是linux的定时器，每个进程只有一个定时器。跟我们定义的定时器类util_timer不是一个东西
-      alarm的返回值是之前的定时器剩余的时间 */
 }
 
+//向服务端发送错误信息。用于当连接数超出上限后，向客户端发送错误信息
 void Utils::show_error(int connfd, const char *info){
     send(connfd, info, strlen(info), 0);
     close(connfd);
@@ -180,16 +150,13 @@ void Utils::show_error(int connfd, const char *info){
 //定时器容器类的tick函数，会调用该回调函数来关闭一个超时连接
 void cb_func(client_data* user_data){
 
+    assert(user_data);
+
     //从内核事件表删除非活动连接在socket上的注册事件
     epoll_ctl(Utils::u_epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0); 
 
-    assert(user_data);  //user_data为NULL时终止程序，因为下面的close要用到user_data
-    close(user_data->sockfd); //关闭文件描述符
+    //关闭文件描述符
+    close(user_data->sockfd); 
 
     http_conn::m_user_count--; //减少连接数
 }
-
-
-
-
-
