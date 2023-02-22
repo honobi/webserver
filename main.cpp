@@ -27,11 +27,14 @@ int main(int argc, char* argv[]){
     //设置listenfd和http连接fd上事件的触发模式
     server.trig_mode();
 
-    //监听，以及其他准备工作
-    server.eventListen();
+    //设置事件监听
+    server.event_listen();
 
-    //运行
-    server.eventLoop();
+    //设置信号捕捉并启动进程定时器
+    server.set_sigact();
+
+    //主线程循环处理事件
+    server.main_loop();
 
     return 0;
 

@@ -6,12 +6,9 @@ using namespace std;
 int* Utils::u_pipefd = NULL; 
 int Utils::u_epollfd = 0; 
 
-
-//定时器链表的析构
 sort_timer_lst::~sort_timer_lst(){
     timer_list.clear(); //删除所有定时器
 }
-
 
 //向升序链表的合适位置添加定时器，同时保持链表升序
 void sort_timer_lst::add_timer(util_timer* timer){
