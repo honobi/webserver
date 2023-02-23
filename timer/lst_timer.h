@@ -11,7 +11,8 @@
 #include <sys/socket.h> 
 #include <assert.h>
 #include <unistd.h>
-#include <list>
+#include <vector>
+#include <unordered_map>
 #include <arpa/inet.h>
 #include "../log/log.h"
 #include "../http/http_conn.h"
@@ -36,19 +37,22 @@ public:
     util_timer(){}
 };
 
-//有序的定时器链表，之后可以考虑改成优先队列priority_queue会不会更好
-class sort_timer_lst{
+//定时器最小堆
+class timer_heap{
 public:
-    sort_timer_lst() {}
-    ~sort_timer_lst();
 
     void add_timer(util_timer *timer); //添加定时器
-    void adjust_timer(util_timer *timer); //调整定时器，任务发生变化时，调整定时器在链表中的位置
+    void adjust_timer(util_timer *timer); //调整定时器位置
     void del_timer(util_timer *timer); //删除定时器
     void tick(); //处理所有的超时定时器
 
+    void m_swap(int i, int j);
+    void siftup(int i);
+    void siftdown(int i);
+
 private:
-    std::list<util_timer*> timer_list;
+    std::vector<util_timer*> min_heap;
+    std::unordered_map<util_timer*, int> umap;
 };
 
 
@@ -58,7 +62,7 @@ public:
     static int* u_pipefd; //管道写端
     static int u_epollfd; //epoll文件描述符
 
-    sort_timer_lst m_timer_lst; //定时器容器类
+    timer_heap m_timer_heap; //定时器容器类
     int m_TIMESLOT; //超时时间
 
 public:

@@ -205,7 +205,7 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address) {
     users_timer[connfd].timer = timer;
 
     //将定时器放进升序链表
-    utils.m_timer_lst.add_timer(timer);
+    utils.m_timer_heap.add_timer(timer);
 }
 
 //调整定时器，将定时器往后延迟3个TIMESLOT
@@ -213,7 +213,7 @@ void WebServer::timer(int connfd, struct sockaddr_in client_address) {
 void WebServer::adjust_timer(util_timer *timer) {
     time_t cur = time(NULL);
     timer->expire = cur + 3 * TIMESLOT;
-    utils.m_timer_lst.adjust_timer(timer);
+    utils.m_timer_heap.adjust_timer(timer);
 
     LOG_INFO("%s", "adjust timer once");
 }
@@ -225,7 +225,7 @@ void WebServer::deal_timer(util_timer *timer, int sockfd) {
 
     //将该定时器从链表移除
     if (timer) 
-        utils.m_timer_lst.del_timer(timer);
+        utils.m_timer_heap.del_timer(timer);
 
     LOG_INFO("close fd %d", users_timer[sockfd].sockfd);
 }
@@ -419,7 +419,7 @@ void WebServer::dealwithwrite(int sockfd) {
 }
 
 
-void WebServer::main_loop() {
+void WebServer::event_loop() {
 
     bool timeout = false;       //是否接收到SIGALRM信号（alarm函数设定的定时器倒计时结束时发出该信号）
     bool stop_server = false;   //是否接收到SIGTERM信号（kill命令默认发出的信号）

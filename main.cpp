@@ -34,7 +34,7 @@ int main(int argc, char* argv[]){
     server.set_sigact();
 
     //主线程循环处理事件
-    server.main_loop();
+    server.event_loop();
 
     return 0;
 

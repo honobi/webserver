@@ -6,57 +6,102 @@ using namespace std;
 int* Utils::u_pipefd = NULL; 
 int Utils::u_epollfd = 0; 
 
-sort_timer_lst::~sort_timer_lst(){
-    timer_list.clear(); //删除所有定时器
+void timer_heap::m_swap(int i, int j){
+    //交换两个timer
+    swap(min_heap[i], min_heap[j]);
+    //交换他们在hash表里的下标
+    swap(umap[min_heap[i]], umap[min_heap[j]]);
 }
 
-//向升序链表的合适位置添加定时器，同时保持链表升序
-void sort_timer_lst::add_timer(util_timer* timer){
-    for(auto it = timer_list.begin(); it != timer_list.end(); ++it){
-        util_timer* cur = *it;
+void timer_heap::siftup(int i){
+    while(i > 0 && min_heap[ (i - 1) / 2]->expire > min_heap[i]->expire){
+        m_swap( (i - 1) / 2, i);
+        i = (i - 1) / 2;
+    }
+}
+void timer_heap::siftdown(int i){
 
-        if(cur->expire < timer->expire){ //找到第一个时间小于timer的定时器cur
-            timer_list.insert(--it, timer); //插到他前一个迭代器的后面
-            break;
+    while(i < min_heap.size()){
+        int left = 2 * i + 1;
+        int right = 2 * i + 2;
+        int min_index = i;  //保存最小值的下标
+
+        //找到最小值下标
+        if(left < min_heap.size() && min_heap[left]->expire < min_heap[min_index]->expire)
+            min_index = left;
+        if(right < min_heap.size() && min_heap[right]->expire < min_heap[min_index]->expire)
+            min_index = right;
+
+        //如果父节点不是三个中最大的
+        if(min_index != i){
+            m_swap(i, min_index);
+            i = min_index;
         }
-    } 
-}
-
-//彻底销毁一个定时器
-void sort_timer_lst::del_timer(util_timer* timer){
-    timer_list.remove(timer); //从链表中移除该定时器 remove函数会移除所有等于value的元素
-    delete timer; //析构该定时器并回收空间
-}
-
-//调整定时器在链表中的位置，有时一个定时器的内容可能发生变化，就需要改变它在链表中的位置
-void sort_timer_lst::adjust_timer(util_timer *timer){
-
-    timer_list.remove(timer); //从链表中移除该定时器
-    add_timer(timer); //重新加入链表
-
-}
-
-//将所有超时的定时器从链表中删除，并执行回调函数处理超时连接
-void sort_timer_lst::tick(){
-
-    time_t now = time(NULL); //获取现在的时间，一个long long
-
-    list<util_timer*>::iterator it = timer_list.begin();
-
-    while(it != timer_list.end()){
-        util_timer* cur = *it;
-        if(now < cur->expire) //到达第一个未超时的定时器
+        //如果父节点是最大的，那么下滤结束
+        else
             break;
-        
-        it = timer_list.erase(it); //erase函数返回删除元素的下一个迭代器。erase之后，容器上的迭代器会失效，所以必须让it重新赋值
-        //每删除一个迭代器，it会自动移到下一个位置，因此不用我们手动++
-        cur->cb_func(cur->user_data); //调用回调处理该超时定时器
-
-        delete cur; //析构该定时器并回收内存
-        
     }
 }
 
+void timer_heap::add_timer(util_timer* timer){
+    //timer放进数组
+    min_heap.push_back(timer);
+
+    //在hash表里记录该timer的位置
+    umap[timer] = min_heap.size() - 1;
+
+    //上滤
+    siftup(min_heap.size() - 1);
+
+}
+
+//从堆中删除并销毁定时器
+void timer_heap::del_timer(util_timer* timer){
+    
+    //从哈希表取出下标
+    int i = umap[timer];
+
+    //将该元素移到最后并pop出数组，然后从hash表删除 并析构定时器
+    m_swap(i, min_heap.size() - 1);
+    min_heap.pop_back();
+    umap.erase(timer);
+    delete timer; 
+
+    //下滤调整堆
+    siftdown(i);
+}
+
+//当定时器时间改变时，调用该函数下滤调整堆
+void timer_heap::adjust_timer(util_timer *timer){
+
+    //取出下标并下滤
+    int i = umap[timer];
+    siftdown(i);
+}
+
+//处理所有超时连接
+void timer_heap::tick(){
+
+    if(min_heap.empty())
+        return;
+
+     //获取现在的时间
+    time_t now = time(NULL);
+
+    util_timer* top = min_heap[0];
+
+    while(!min_heap.empty() && top->expire < now){
+
+        //调用回调处理超时连接
+        top->cb_func(top->user_data);
+
+        //从堆中删除并销毁定时器
+        del_timer(top);
+
+        top = min_heap[0];
+
+    }
+}
 
 void Utils::init(int timeslot, int epollfd, int* pipefd){
     m_TIMESLOT = timeslot;
@@ -134,7 +179,7 @@ void Utils::addsig(int sig, void(handler)(int), bool restart){
 
 //定时处理所有超时连接，重新调用alarm启动本进程的定时器。以不断触发SIGALRM信号
 void Utils::timer_handler(){
-    m_timer_lst.tick(); //处理所有的超时定时器
+    m_timer_heap.tick(); //处理所有的超时定时器
     alarm(m_TIMESLOT); //每隔m_TIMESLOT时间触发SIGALRM信号
 }
 
