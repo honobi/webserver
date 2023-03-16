@@ -9,6 +9,35 @@
 #include "mysql/sql_connection_pool.h"
 
 template<typename T>
+class m_priority_queue{
+    std::list<T*> high_priority_queue;  //高优先级队列对应的优先级为0，低优先级为1
+    std::list<T*> low_priority_queue;
+
+public:
+    void push_back(T* request){
+        int priority = request->http_priority;
+        if(priority == 0)
+            high_priority_queue.push_back(request);
+        else
+            low_priority_queue.push_back(request);
+    }
+    
+    T* front(){
+        if(high_priority_queue.size() != 0)
+            return high_priority_queue.front();
+        return low_priority_queue.front();
+    }
+
+    void pop_front(){
+        if(high_priority_queue.size() != 0){
+            high_priority_queue.pop_front();
+            return;
+        }
+        low_priority_queue.pop_front();
+    }
+};
+
+template<typename T>
 class threadpool{
 public:
     //将默认实参放在声明中
@@ -25,7 +54,7 @@ private:
     int m_thread_number;  //线程池中的线程数
     int m_max_requests;   //请求队列允许的最大请求数
     pthread_t* m_threads; //线程池数组，保存线程id
-    std::list<T*> m_workqueue;  //请求队列
+    m_priority_queue<T> m_workqueue;  //请求队列
     locker m_queuelocker;   //保护请求队列的互斥锁
     sem m_tasks;      //任务队列中任务数
     sem m_free;           //任务队列空闲位置数，初始化为请求队列最大任务数
@@ -123,7 +152,7 @@ void threadpool<T>::run(){
         m_queuelocker.lock(); //进入临界区
 
         //工作线程作为消费者，消费一个请求
-        T *request = m_workqueue.front();
+        T* request = m_workqueue.front();
         m_workqueue.pop_front();
 
         //退出临界区并空闲数+1
@@ -146,17 +175,17 @@ void threadpool<T>::run(){
                 //工作线程负责IO：将接收到的数据放到读缓冲区
                 int res = request->read_once();
 
-                request->improv = 1; //标记该连接执行过IO操作
+                request->have_io = 1; //标记该连接执行过IO操作
 
                 //IO成功，从数据库连接池中取出一个数连接，然后process解析读缓冲区中的请求报文并将响应报文写入写缓冲区
                 if (res) {
-                    connectionRAII mysqlcon(&request->mysql, m_connPool); //
+                    connectionRAII mysqlcon(&request->mysql, m_connPool); 
                     request->process();
                 }
 
                 //IO失败，设置标记timer_flag，标记该连接应该被关闭
                 else
-                    request->timer_flag = 1;
+                    request->shoule_close = 1;
             }
 
             //对该http请求的处理处于 写阶段：将写缓冲区中的响应报文发送给浏览器端
@@ -165,11 +194,15 @@ void threadpool<T>::run(){
                 //工作线程负责IO：将相应报文放进写缓冲区
                 int res = request->write();
 
-                request->improv = 1; //标记该连接执行过IO操作
+                //如果是短连接，那么标记该连接应该被关闭
+                if(request->if_keep_alive() == false)
+                    request->shoule_close = 1;
+
+                request->have_io = 1; //标记该连接执行过IO操作
 
                 //IO失败，设置标记timer_flag，标记该连接应该被关闭
                 if (res == 0)
-                    request->timer_flag = 1;
+                    request->shoule_close = 1;
             }
         }
 

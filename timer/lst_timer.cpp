@@ -57,6 +57,8 @@ void timer_heap::add_timer(util_timer* timer){
 
 //从堆中删除并销毁定时器
 void timer_heap::del_timer(util_timer* timer){
+//从堆中删除指定元素也好，弹出堆顶元素也好，都是将该元素与最后一个元素交换，然后下滤到合适位置。
+//因为这样可以在不破坏堆结构的情况下删除一个元素，做到O(logn)的时间复杂度
     
     //从哈希表取出下标
     int i = umap[timer];
@@ -179,7 +181,7 @@ void Utils::addsig(int sig, void(handler)(int), bool restart){
 
 //定时处理所有超时连接，重新调用alarm启动本进程的定时器。以不断触发SIGALRM信号
 void Utils::timer_handler(){
-    m_timer_heap.tick(); //处理所有的超时定时器
+    m_timer_heap.tick(); //处理所有的超时连接
     alarm(m_TIMESLOT); //每隔m_TIMESLOT时间触发SIGALRM信号
 }
 

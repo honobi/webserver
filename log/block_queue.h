@@ -10,7 +10,7 @@ template<typename T>
 class block_queue{
 private:
     locker m_mutex;
-    cond m_cond;
+    cond m_cond;    //使用条件变量+互斥锁实现 push与pop的同步
 
     T* m_array;
     int m_size;

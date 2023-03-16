@@ -1,6 +1,7 @@
 #include <mysql/mysql.h>
 #include <list>
 #include <stdlib.h> 
+#include <assert.h>
 #include "sql_connection_pool.h"
 
 using namespace std;
@@ -38,6 +39,9 @@ void connection_pool::init(string url, string user, string password, string DBNa
         conn_list.push_back(con); //连接成功，那么将连接放进list
 
     }
+    //一个连接也没创建就退出进程
+    assert(conn_list.size() > 0);
+
     reserve = sem(conn_list.size());  //创建完连接后，将成功创建的连接数作为信号量初始值
     m_maxconn = conn_list.size(); //将成功创建的连接数作为最大值
 }
@@ -45,12 +49,7 @@ void connection_pool::init(string url, string user, string password, string DBNa
 //当有请求时，从数据库连接池中取出一个可用连接
 MYSQL* connection_pool::get_connection(){
 
-    MYSQL* con = NULL;
-    //如果已经没有可用连接，返回NULL
-    if(conn_list.size() == 0){
-        //我认为这样写是不准确的，conn_list作为一个共享变量怎么能直接不加锁直接访问
-        return NULL;
-    } 
+    MYSQL* con = NULL; 
 
     reserve.wait(); //对信号量P操作，当信号量为0时阻塞住
     lock.lock(); //上锁

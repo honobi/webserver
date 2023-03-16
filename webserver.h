@@ -39,8 +39,8 @@ public:
     void set_sigact();
     void event_loop();
     void timer(int connfd, struct sockaddr_in client_address);
-    void adjust_timer(util_timer *timer);
-    void deal_timer(util_timer *timer, int sockfd);
+    void flush_timer(util_timer *timer);
+    void close_conn(util_timer *timer, int sockfd);
     bool dealclinetdata();
     bool dealwithsignal(bool& timeout, bool& stop_server);
     void dealwithread(int sockfd);
@@ -80,6 +80,6 @@ public:
 
     //定时器相关
     client_data *users_timer; //连接资源数组
-    Utils utils;  //定时处理非活跃连接 的类
+    Utils utils;  //工具类
 };
 #endif

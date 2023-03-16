@@ -20,13 +20,13 @@ public:
 
     //(c++11)为类内数据成员提供一个类内初始值。创建对象时，类内初始值将用于初始化数据成员，没有初始值的成员被默认初始化。类内初始值只能使用=和花括号
     int PORT = 80;           //端口号
-    int LOGWrite = 0;       //日志写入方式，默认同步日志
+    int LOGWrite = 1;       //日志写入方式，默认异步日志
     int TRIGMode = 0;       //触发组合模式，默认listenfd LT + connfd LT
     int LISTENTrigmode = 0; //listenfd触发模式，默认LT
     int CONNTrigmode = 0;   //connfd触发模式，默认LT
     int OPT_LINGER = 0;     //是否使用socket的SO_LINGER选项关闭链接
     int sql_num = 8;        //数据库连接池数量
-    int thread_num = 8;     //线程池内的线程数量
+    int thread_num = 4;     //线程池内的线程数量
     int close_log = 0;      //是否关闭日志
     int actor_model = 0;    //并发模型选择，默认proactor模式
 

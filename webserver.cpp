@@ -143,7 +143,7 @@ void WebServer::event_listen() {
     ret = listen(m_listenfd, 5); //将TCP的SYN队列的最大长度设置为5
     assert(ret >= 0);
 
-    //初始化 定时处理非活跃连接 的类，设置超时时间
+    //初始化工具类
     utils.init(TIMESLOT, m_epollfd, m_pipefd);  
 
     //epoll创建内核事件表
@@ -162,9 +162,9 @@ void WebServer::event_listen() {
     //将管道写端设置为非阻塞
     utils.setnonblocking(m_pipefd[1]);
     /*为什么要讲管道的读端设置为非阻塞：信号处理函数使用send函数将信息写到管道写端，如果写端满了，
-        则会阻塞，这时候会进一步增加信号处理函数的执行时间，为此，将其修改为非阻塞。
-    设置为非阻塞，而且没有对返回值进行处理，如果缓冲区满，就意味着这一次定时事件失效了
-        但定时事件是非必须立即处理的事件，可以允许这样的情况发生。
+        则会阻塞，这时候会进一步增加信号处理函数的执行时间
+    设置为非阻塞，而且没有对返回值进行处理，如果缓冲区满，就意味着这一次信号处理失败了
+        但本程序的信号主要是SIGALRM（定时关闭连接），并不是必须立即处理的事件，可以允许这样的情况发生。
     */
 
     //检测管道读端的可读事件
@@ -187,30 +187,29 @@ void WebServer::set_sigact(){
 }
 
 
-//生成定时器管理 该连接，同时定时器会被放进升序链表
+//初始化http连接并使用定时器管理该连接
 void WebServer::timer(int connfd, struct sockaddr_in client_address) {
     //初始化http连接
     users[connfd].init(connfd, client_address, m_root, m_CONNTrigmode, m_close_log, m_user, m_passWord, m_databaseName);
 
-    //创建并初始化定时器
+    //创建定时器
     util_timer* timer = new util_timer;
     timer->user_data = &users_timer[connfd];
     timer->cb_func = cb_func;
     time_t cur = time(NULL);
-    timer->expire = cur + 3 * TIMESLOT;  //目标时间：当前时间+ 3个TIMESLOT
+    timer->expire = cur + 3 * TIMESLOT;  //超时时间设置为3个TIMESLOT
 
-    //初始化连接数据
+    //初始化连接资源
     users_timer[connfd].address = client_address;
     users_timer[connfd].sockfd = connfd;
     users_timer[connfd].timer = timer;
 
-    //将定时器放进升序链表
+    //将定时器放进最小堆
     utils.m_timer_heap.add_timer(timer);
 }
 
-//调整定时器，将定时器往后延迟3个TIMESLOT
-//并对新的定时器在链表上的位置进行调整
-void WebServer::adjust_timer(util_timer *timer) {
+//刷新定时器：当前时间+3个TIMESLOT
+void WebServer::flush_timer(util_timer *timer) {
     time_t cur = time(NULL);
     timer->expire = cur + 3 * TIMESLOT;
     utils.m_timer_heap.adjust_timer(timer);
@@ -218,29 +217,31 @@ void WebServer::adjust_timer(util_timer *timer) {
     LOG_INFO("%s", "adjust timer once");
 }
 
-//该函数被调用来 关闭一个超时连接：将定时器从链表移除、关闭socket文件描述符、去除epoll对它的事件检测    
-void WebServer::deal_timer(util_timer *timer, int sockfd) {
-    //关闭超时连接，包括关闭socket文件描述符和去除epoll对它的事件检测
+//关闭http连接
+void WebServer::close_conn(util_timer *timer, int sockfd) {
+
+    //调用回调关闭超时连接：关闭socket文件描述符和去除epoll对它的事件检测
     timer->cb_func(&users_timer[sockfd]);
 
-    //将该定时器从链表移除
+    //将该定时器从最小堆移除
     if (timer) 
         utils.m_timer_heap.del_timer(timer);
 
     LOG_INFO("close fd %d", users_timer[sockfd].sockfd);
 }
 
-//使用accept函数接收客户端连接，并用定时器管理该连接
+//处理客户端数据：使用accept函数接收客户端连接，并调用timer()初始化一个http连接并使用定时器管理
 bool WebServer::dealclinetdata() {
     struct sockaddr_in client_address;
     socklen_t client_addrlength = sizeof(client_address);
 
-    //如果对listenfd的检测的 触发模式是LT模式
+    //如果对listenfd的检测的 触发模式是LT模式，那么如果一个事件没有被处理，之后调用epoll_wait还会触发该事件
     if (m_LISTENTrigmode == 0) {
-        //阻塞等待 接收客户端连接
+
+        //接收客户端连接：由系统（内核）创建一个socket并由accept函数返回他的文件描述符
         int connfd = accept(m_listenfd, (struct sockaddr *)&client_address, &client_addrlength);
         
-        //失败
+        //accept失败
         if (connfd < 0) {
             LOG_ERROR("%s:errno is:%d", "accept error", errno);
             return false;
@@ -253,11 +254,11 @@ bool WebServer::dealclinetdata() {
             return false;
         }
 
-        //生成定时器管理该连接
+        //初始化http连接并使用定时器管理
         timer(connfd, client_address);
     }
 
-    //如果对listenfd的检测是ET触发模式，则需要循环的调用accept去接受连接，因为ET模式只触发一次，可能有未被处理的连接
+    //如果对listenfd的检测是ET触发模式，则需要循环的调用accept去接受连接，因为ET模式每个事件只触发一次，如果有未被处理的连接，之后调用epoll_wait也不会触发
     else {
         while (1) {
             int connfd = accept(m_listenfd, (struct sockaddr *)&client_address, &client_addrlength);
@@ -325,9 +326,9 @@ void WebServer::dealwithread(int sockfd) {
     //Reactor模式，主线程只负责监听文件描述符上是否有事件发生，然后通知工作线程。工作线程负责IO和业务处理
     if (m_actormodel == 1) {
 
-        //调整定时器
+        //刷新定时器
         if (timer)
-            adjust_timer(timer);
+            flush_timer(timer);
 
 
         //将该http连接放入请求队列，也就是通知工作线程。设置http状态为：读阶段
@@ -335,15 +336,15 @@ void WebServer::dealwithread(int sockfd) {
 
         while (true) {
             //如果在工作线程中执行过IO操作
-            if (users[sockfd].improv == 1) {
+            if (users[sockfd].have_io == 1) {
 
                 //如果该连接的IO操作出错，就该关闭连接
-                if (users[sockfd].timer_flag == 1) {
-                    //关闭超时连接：将定时器从链表移除、关闭socket文件描述符、从事件表去除对该socket的检测
-                    deal_timer(timer, sockfd);
-                    users[sockfd].timer_flag = 0;   //重置timer_flag，可能是为了复用该http连接
+                if (users[sockfd].shoule_close == 1) {
+                    //关闭连接
+                    close_conn(timer, sockfd);
+                    users[sockfd].shoule_close = 0;   //重置timer_flag，
                 }
-                users[sockfd].improv = 0;   //重置improv，可能是为了复用该http连接
+                users[sockfd].have_io = 0;   //重置improv
                 break;
             }
         }
@@ -362,16 +363,15 @@ void WebServer::dealwithread(int sockfd) {
             //将该http连接放入请求队列
             m_pool->append_p(&users[sockfd]);
 
-            //调整定时器
+            //刷新定时器
             if (timer)
-                adjust_timer(timer);
+                flush_timer(timer);
             
         }
 
         //IO操作失败，应该关闭该连接
         else {
-            //将定时器从链表移除、关闭socket文件描述符、从事件表去除对该socket的检测
-            deal_timer(timer, sockfd);
+            close_conn(timer, sockfd);
         }
     }
 }
@@ -388,32 +388,39 @@ void WebServer::dealwithwrite(int sockfd) {
     //reactor
     if (m_actormodel == 1) {
         if (timer)
-            adjust_timer(timer);
+            flush_timer(timer);
 
         m_pool->append(&users[sockfd], 1);
 
         while (true) {
-            if (users[sockfd].improv == 1) {
-                if (users[sockfd].timer_flag == 1) {
-                    deal_timer(timer, sockfd);
-                    users[sockfd].timer_flag = 0;
+            if (users[sockfd].have_io == 1) {
+                if (users[sockfd].shoule_close == 1) {
+                    close_conn(timer, sockfd);
+                    users[sockfd].shoule_close = 0;
                 }
-                users[sockfd].improv = 0;
+                users[sockfd].have_io = 0;
                 break;
             }
         }
     }
+    //proactor
     else {
-        //proactor
+        
         if (users[sockfd].write()) {
             LOG_INFO("send data to the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
 
+            //重置定时器
             if (timer)
-                adjust_timer(timer);
+                flush_timer(timer);
+
+            //如果是短连接，那么关闭连接
+            if(users[sockfd].if_keep_alive()== false)
+                close_conn(timer, sockfd);
             
         }
+        //write失败，关闭连接
         else {
-            deal_timer(timer, sockfd);
+            close_conn(timer, sockfd);
         }
     }
 }
@@ -426,15 +433,15 @@ void WebServer::event_loop() {
 
     while (!stop_server) {
         //epoll_wait等待事件表中的某个事件发生。超时时间-1表示该函数永久阻塞，直到某个事件发生
-        int number = epoll_wait(m_epollfd, events, MAX_EVENT_NUMBER, -1);
+        int num = epoll_wait(m_epollfd, events, MAX_EVENT_NUMBER, -1);
         //成功时返回就绪的文件描述符的个数，失败时返回-1并设置errno。
 
-        if (number < 0 && errno != EINTR) {
+        if (num < 0 && errno != EINTR) {
             LOG_ERROR("%s", "epoll failure");
             break;
         }
 
-        for (int i = 0; i < number; i++) {
+        for (int i = 0; i < num; i++) {
             int sockfd = events[i].data.fd;
 
             //有新的连接
@@ -448,9 +455,9 @@ void WebServer::event_loop() {
             //对端断开TCP连接或 文件描述符发生错误
             else if ( (events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) != 0){  //位运算优先级很低，比==和!=都低，但是比&&和||要高
 
-                //服务器端关闭连接，移除对应的定时器
+                //关闭连接
                 util_timer* timer = users_timer[sockfd].timer;
-                deal_timer(timer, sockfd);
+                close_conn(timer, sockfd);
             }
             //如果管道写端有信号需要处理。目前只处理SIGALRM和SIGTERM信号
             else if ( ((sockfd == m_pipefd[0]) && (events[i].events & EPOLLIN)) != 0) {

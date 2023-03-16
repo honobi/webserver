@@ -23,7 +23,7 @@ class util_timer; //前向声明
 struct client_data{
     sockaddr_in address; //客户端socket地址
     int sockfd;         //socket文件描述符
-    util_timer* timer; //该连接资源使用的 定时器
+    util_timer* timer; //该连接资源使用的定时器
 };
 
 //定时器类
@@ -56,7 +56,7 @@ private:
 };
 
 
-//定时处理连接类，定时处理非活动连接
+//工具类
 class Utils{
 public:
     static int* u_pipefd; //管道写端
@@ -85,8 +85,8 @@ public:
     //定时处理任务，重新定时以不断触发SIGALRM信号
     void timer_handler();
 
+    //向服务端发送错误信息。用于当连接数超出上限后，向客户端发送错误信息
     void show_error(int connfd, const char *info);
-
 
 };
 
