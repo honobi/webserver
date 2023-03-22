@@ -4,8 +4,7 @@
 #include <string>
 #include "webserver.h"
 
-class Config
-{
+class Config {
 private:
 
     static Config* config;
@@ -14,7 +13,7 @@ private:
 
 public:
     
-    static Config* get_instance(){
+    static Config* get_instance() {
         return Config::config;
     }
 
@@ -41,52 +40,42 @@ public:
         //选项后跟一个冒号，表示选项后必须跟一个参数，参数紧跟在选项后或者以空格隔开
 
         //依次获取所有参数的值
-        while ((opt = getopt(argc, argv, str)) != -1)
-        {
-            switch (opt)
-            {
-            case 'p':
-            {
-                PORT = atoi(optarg);
-                break;
-            }
-            case 'l':
-            {
-                LOGWrite = atoi(optarg);
-                break;
-            }
-            case 'm':
-            {
-                TRIGMode = atoi(optarg);
-                break;
-            }
-            case 'o':
-            {
-                OPT_LINGER = atoi(optarg);
-                break;
-            }
-            case 's':
-            {
-                sql_num = atoi(optarg);
-                break;
-            }
-            case 't':
-            {
-                thread_num = atoi(optarg);
-                break;
-            }
-            case 'c':
-            {
-                close_log = atoi(optarg);
-                break;
-            }
-            case 'a':
-            {
-                actor_model = atoi(optarg);
-                break;
-            }
-            default:
-                break;
+        while ((opt = getopt(argc, argv, str)) != -1) {
+            switch (opt) {
+                case 'p': {
+                    PORT = atoi(optarg);
+                    break;
+                }
+                case 'l': {
+                    LOGWrite = atoi(optarg);
+                    break;
+                }
+                case 'm': {
+                    TRIGMode = atoi(optarg);
+                    break;
+                }
+                case 'o': {
+                    OPT_LINGER = atoi(optarg);
+                    break;
+                }
+                case 's': {
+                    sql_num = atoi(optarg);
+                    break;
+                }
+                case 't': {
+                    thread_num = atoi(optarg);
+                    break;
+                }
+                case 'c': {
+                    close_log = atoi(optarg);
+                    break;
+                }
+                case 'a': {
+                    actor_model = atoi(optarg);
+                    break;
+                }
+                default:
+                    break;
             }
         }
     }

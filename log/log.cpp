@@ -172,7 +172,7 @@ void Log::write_log(int level, const char* format, ...){
 
     //如果是异步日志，而且阻塞队列没满，那么把要写入的日志放进阻塞队列
     if(m_is_async && m_log_queue->full() == false){  
-        string log_str;
+        string log_str = m_buf;
         m_log_queue->push(log_str); 
     }
     //如果是同步日志，那么直接往文件里写
