@@ -74,7 +74,7 @@ public:
     //对文件描述符设置非阻塞
     int setnonblocking(int fd);
 
-    void addfd(int epollfd, int fd, bool one_shot, int TRIGMode);
+    void add_read_event(int epollfd, int fd, bool one_shot, int TRIGMode);
 
     //信号处理函数
     static void sig_handler(int sig);

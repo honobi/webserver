@@ -151,7 +151,7 @@ void WebServer::event_listen() {
     assert(m_epollfd != -1);
 
     //向事件表注册一个事件，去检测listenfd上是否有新连接
-    utils.addfd(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
+    utils.add_read_event(m_epollfd, m_listenfd, false, m_LISTENTrigmode);
     http_conn::m_epollfd = m_epollfd;   //整个程序使用同一个epoll实例
 
     //使用socketpair创建一个全双工管道
@@ -168,7 +168,7 @@ void WebServer::event_listen() {
     */
 
     //检测管道读端的可读事件
-    utils.addfd(m_epollfd, m_pipefd[0], false, 0);
+    utils.add_read_event(m_epollfd, m_pipefd[0], false, 0);
 
 }
 
@@ -467,7 +467,7 @@ void WebServer::event_loop() {
                 if (flag == false)
                     LOG_ERROR("%s", "dealwithsignal failure");
             }
-            //除上面以外，如果有可读事件，表示TCP连接接收到新数据
+            //除上面以外，如果有可读事件
             else if ( (events[i].events & EPOLLIN) != 0 )
                 dealwithread(sockfd);
             
@@ -480,6 +480,13 @@ void WebServer::event_loop() {
         //区别两个定时器：util_timer定时器是我们自己定义的定时器类，而alarm函数启动的定时器是每个进程仅有一个的定时器
         if (timeout) {
             utils.timer_handler();
+
+            // 心跳机制
+            heart_beat_cnt++;
+            if(heart_beat_cnt == 1440) {
+                heart_beat_cnt = 0;
+                m_connPool->get_instance()->heart_beat();
+            }
 
             LOG_INFO("%s", "timer tick");
 

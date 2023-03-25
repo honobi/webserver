@@ -124,7 +124,7 @@ int Utils::setnonblocking(int fd){
 }
 
 //向epoll的内核事件表注册一个读事件。该函数在本类中只是用于检测管道的读端。
-void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
+void Utils::add_read_event(int epollfd, int fd, bool one_shot, int TRIGMode){
 //one_shot代表是否开启EPOLLONESHOT，TRIGMode代表是否采用ET模式（LT模式是缺省模式）
 
     epoll_event event;
@@ -145,7 +145,7 @@ void Utils::addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
     
 }
 
-//信号处理函数：只是简单地通知主循环程序接收到信号，并把信号值传递给主循环
+//信号处理函数：只是简单地把信号值写入管道写端。当epoll检测到管道读端有可读事件，就处理信号
 void Utils::sig_handler(int sig){
 
     //因为中断之后，处理的过程中可能发生一些错误，errno会设置为其他值，所以我们先把errno保存下来
@@ -154,7 +154,7 @@ void Utils::sig_handler(int sig){
 
     int msg = sig;
 
-    //将信号值写入管道写端，以通知主循环
+    //将信号值写入管道写端
     int res = send(u_pipefd[1], (char*)&msg, sizeof(int), 0); 
 
     errno = save_errno; //复原errno
@@ -172,7 +172,7 @@ void Utils::addsig(int sig, void(handler)(int), bool restart){
         sa.sa_flags |= SA_RESTART; //为信号设置SA_RESTART标志以自动重启被该信号中断的系统调用
     
     //将sa_mask全部置为1，表示信号处理函数执行期间，阻塞所有信号,直到信号处理函数执行完毕。防止这些信号被屏蔽
-      sigfillset(&sa.sa_mask);
+    sigfillset(&sa.sa_mask);
 
     //设置信号处理函数
     assert(sigaction(sig, &sa, NULL) != -1);

@@ -52,7 +52,7 @@ int setnonblocking(int fd){
 }
 
 //向epoll的内核事件表注册一个读事件
-void addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
+void add_read_event(int epollfd, int fd, bool one_shot, int TRIGMode){
     //one_shot代表是否开启EPOLLONESHOT，TRIGMode代表是否采用ET模式（LT模式是缺省模式）
 
     epoll_event event; //指定事件
@@ -73,12 +73,11 @@ void addfd(int epollfd, int fd, bool one_shot, int TRIGMode){
 }
 
 //从内核事件表删除描述符，并关闭文件描述符
-void removefd(int epollfd, int fd){
+void remove_fd_from_epoll(int epollfd, int fd){
     epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
     close(fd); 
 }
 
-//重置EPOLLONESHOT
 void reset_oneshot(int epollfd, int fd, int ev, int TRIGMode){
     epoll_event event;
     event.data.fd = fd;
@@ -95,7 +94,7 @@ void reset_oneshot(int epollfd, int fd, int ev, int TRIGMode){
 void http_conn::close_conn(bool http_close){
     if(http_close && m_sockfd != -1){
         printf("close %d\n", m_sockfd); //打印关闭的socket文件描述符
-        removefd(m_epollfd, m_sockfd);  //从内核事件表移除对该socket文件描述符的检测
+        remove_fd_from_epoll(m_epollfd, m_sockfd);  //从内核事件表移除对该socket文件描述符的检测
         m_sockfd = -1;  //重置socket文件描述符
         m_user_count--; //连接数-1
     }
@@ -114,7 +113,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr, char* root, int TRIGMo
     m_close_log = close_log;
 
     //向内核事件表注册对sockfd读事件的检测，启用EPOLLONESHOT
-    addfd(m_epollfd, sockfd, true, m_TRIGMode);   
+    add_read_event(m_epollfd, sockfd, true, m_TRIGMode);   
     m_user_count++; //http连接数+1
 
     strcpy(sql_user, user.c_str());
@@ -600,7 +599,7 @@ bool http_conn::write() {
         //wirtev失败
         if (temp < 0) {
 
-            //如果是缓冲区满，则重置该可写事件的EPOLLONESHOT，让下一次epoll_wait还会提醒该事件
+            //如果是缓冲区满，则注册一个可写事件等下次再写，并带上EPOLLONESHOT
             if (errno == EAGAIN) {
                 reset_oneshot(m_epollfd, m_sockfd, EPOLLOUT, m_TRIGMode); 
                 return true;

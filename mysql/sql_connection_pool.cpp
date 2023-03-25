@@ -13,6 +13,14 @@ connection_pool* connection_pool::get_instance(){
     return &connPool;
 }
 
+void connection_pool::heart_beat() {
+    lock.lock();
+    for(auto it = conn_list.begin(); it != conn_list.end(); ++it) {
+        mysql_query(*it, "select 1 from user");
+    }
+    lock.unlock();
+}
+
 void connection_pool::init(string url, string user, string password, string DBName, int port, int maxConn, int close_log){
     m_url = url;
 	m_port = port;

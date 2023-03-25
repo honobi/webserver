@@ -11,13 +11,14 @@ class connection_pool{
 private:
     connection_pool();
     ~connection_pool();
-
+    
     int m_maxconn; //最大连接数
     locker lock;
     std::list<MYSQL*> conn_list; //连接池
     sem reserve; //剩余可用连接数的信号量
 
 public:
+    void heart_beat();
     void init(std::string url, std::string User, std::string PassWord, std::string DataBaseName, int Port, int MaxConn, int close_log); 
 
     MYSQL* get_connection(); 
@@ -26,7 +27,6 @@ public:
 
     static connection_pool* get_instance(); //单例模式
 
-public:
     std::string m_url;  //主机地址
     std::string m_port; //数据库端口号
     std::string m_user; //数据库用户名

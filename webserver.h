@@ -81,5 +81,6 @@ public:
     //定时器相关
     client_data *users_timer; //连接资源数组
     Utils utils;  //工具类
+    int heart_beat_cnt;  // 用于实现mysql心跳机制。每5秒+1，到达1440（2小时）时，发送一个请求
 };
 #endif
